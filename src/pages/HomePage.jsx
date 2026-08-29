@@ -41,7 +41,7 @@ function HomePage() {
             </span>
           </h1>
           <p className="text-emerald-50/90 text-sm md:text-base leading-relaxed">
-            Welcome to the Criclet Pro Administration hub. Register teams,
+            Welcome to the cricket Pro Administration hub. Register teams,
             assign squads, schedule matches, and monitor live score sheets with
             our advanced dashboard suite.
           </p>

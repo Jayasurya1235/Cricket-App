@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Routes, Route, Link, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -11,7 +17,10 @@ import {
   Menu,
   X,
   Sparkles,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "./auth/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import TeamsPage from "./pages/TeamsPage";
 import PlayersPage from "./pages/PlayersPage";
@@ -22,6 +31,8 @@ import EditPlayerPage from "./pages/EditPlayerPage";
 import MatchesPage from "./pages/MatchesPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import AddMatchPage from "./pages/AddMatchPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +48,23 @@ const quickActionItems = [
 ];
 
 function SidebarContent({ isActive, onNavigate }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    onNavigate?.();
+    navigate("/login", { replace: true });
+  }
+
+  const initials = (user?.name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+
   return (
     <div className="flex flex-col h-full bg-[#9C513E] border-r border-[#b05c48]/40 text-[#fdf3ef]">
       {/* Brand Header */}
@@ -46,7 +74,7 @@ function SidebarContent({ isActive, onNavigate }) {
         </div>
         <div>
           <h1 className="text-xl font-bold text-white tracking-wider flex items-center gap-1.5">
-            CRICLET
+            cricket
             <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
           </h1>
           <span className="text-xs text-[#f8dccb] font-semibold uppercase tracking-widest">
@@ -112,15 +140,26 @@ function SidebarContent({ isActive, onNavigate }) {
         </div>
       </div>
 
-      {/* Footer / User Profile Mock */}
+      {/* Footer / User Profile */}
       <div className="p-4 border-t border-white/10 bg-[#a8553f]/50 flex items-center gap-3">
         <div className="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-[#fff3ee] font-bold">
-          JD
+          {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">John Doe</p>
-          <p className="text-xs text-[#f7dccf]/80 truncate">Administrator</p>
+          <p className="text-sm font-semibold text-white truncate">
+            {user?.name || "User"}
+          </p>
+          <p className="text-xs text-[#f7dccf]/80 truncate">
+            {user?.email || "Administrator"}
+          </p>
         </div>
+        <button
+          onClick={handleLogout}
+          title="Log out"
+          className="p-2 rounded-lg text-[#f7d8cb] hover:bg-white/10 hover:text-white transition"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
@@ -138,13 +177,28 @@ function App() {
     return location.pathname.startsWith(path);
   };
 
+  const isPublicAuthPage =
+    location.pathname === "/login" || location.pathname === "/register";
+
+  // Public auth pages render standalone, without the app shell.
+  if (isPublicAuthPage) {
+    return (
+      <div className="min-h-screen bg-[#f7faf8] text-gray-800 font-sans">
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Routes>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f7faf8] text-gray-800 flex flex-col md:flex-row font-sans">
       {/* Mobile Top Navigation */}
       <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#9C513E] border-b border-[#b05c48]">
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-amber-300" />
-          <span className="font-bold text-white tracking-wide">CRICLET</span>
+          <span className="font-bold text-white tracking-wide">cricket</span>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -206,7 +260,8 @@ function App() {
                 !location.pathname.match(/^\/teams\/\d+\/edit$/) &&
                 "Teams Directory"}
               {isActive("/players/new") && "Register New Player"}
-              {location.pathname.match(/^\/players\/\d+\/edit$/) && "Edit Player"}
+              {location.pathname.match(/^\/players\/\d+\/edit$/) &&
+                "Edit Player"}
               {isActive("/players") &&
                 !isActive("/players/new") &&
                 !location.pathname.match(/^\/players\/\d+\/edit$/) &&
@@ -230,29 +285,108 @@ function App() {
         {/* Dynamic Pages Area */}
         <div className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full mx-auto">
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/teams" element={<TeamsPage />} />
-            <Route path="/players" element={<PlayersPage />} />
-            <Route path="/matches" element={<MatchesPage />} />
-            <Route path="/teams/new" element={<AddTeamPage />} />
-            <Route path="/teams/:teamId/edit" element={<AddTeamPage />} />
-            <Route path="/players/new" element={<AddPlayerPage />} />
-            <Route path="/players/:playerId/edit" element={<EditPlayerPage />} />
-            <Route path="/matches/new" element={<AddMatchPage />} />
-            <Route path="/teams/:teamId" element={<TeamDetailPage />} />
-            <Route path="/matches/:matchId" element={<MatchDetailPage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams"
+              element={
+                <ProtectedRoute>
+                  <TeamsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/players"
+              element={
+                <ProtectedRoute>
+                  <PlayersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/matches"
+              element={
+                <ProtectedRoute>
+                  <MatchesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams/new"
+              element={
+                <ProtectedRoute>
+                  <AddTeamPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams/:teamId/edit"
+              element={
+                <ProtectedRoute>
+                  <AddTeamPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/players/new"
+              element={
+                <ProtectedRoute>
+                  <AddPlayerPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/players/:playerId/edit"
+              element={
+                <ProtectedRoute>
+                  <EditPlayerPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/matches/new"
+              element={
+                <ProtectedRoute>
+                  <AddMatchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teams/:teamId"
+              element={
+                <ProtectedRoute>
+                  <TeamDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/matches/:matchId"
+              element={
+                <ProtectedRoute>
+                  <MatchDetailPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="*"
               element={
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">Page not found.</p>
-                  <Link
-                    to="/"
-                    className="text-emerald-600 hover:underline mt-2 inline-block"
-                  >
-                    Return to Dashboard
-                  </Link>
-                </div>
+                <ProtectedRoute>
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 text-lg">Page not found.</p>
+                    <Link
+                      to="/"
+                      className="text-emerald-600 hover:underline mt-2 inline-block"
+                    >
+                      Return to Dashboard
+                    </Link>
+                  </div>
+                </ProtectedRoute>
               }
             />
           </Routes>
