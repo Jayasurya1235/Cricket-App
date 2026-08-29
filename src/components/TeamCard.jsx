@@ -5,6 +5,7 @@ import { extractErrorMessage } from "../api/client";
 import cskImage from "../images/csk.jpg";
 import rcbImage from "../images/rcb.jpg";
 import miImage from "../images/mi.jpg";
+import srhImage from "../images/srh.jpg";
 
 // Team color scheme configuration
 const TEAM_COLORS = {
@@ -23,6 +24,11 @@ const TEAM_COLORS = {
     textColor: "text-blue-400",
     borderColor: "border-blue-500/30",
   },
+   SRH: {
+    bg: "from-blue-950 to-yellow-900",
+    textColor: "text-blue-400",
+    borderColor: "border-blue-500/30",
+  },
   DEFAULT: {
     bg: "from-emerald-600 via-emerald-700 to-emerald-900",
     textColor: "text-emerald-100",
@@ -35,6 +41,7 @@ const TEAM_IMAGES = {
   CSK: cskImage,
   RCB: rcbImage,
   MI: miImage,
+  SRH:srhImage
 };
 
 function TeamCard({ team }) {
@@ -89,14 +96,14 @@ function TeamCard({ team }) {
         <div className="relative z-10 h-full flex flex-col justify-between p-6 w-3/5 sm:w-1/2">
           <div className="space-y-1">
             <h1
-              className={`text-5xl sm:text-6xl font-black tracking-wider ${teamColors.textColor}`}
+              className={`text-5xl sm:text-6xl font-black tracking-wider ${teamColors.textColor} -ml-4`}
             >
               {team.short_name}
             </h1>
-            <p className="text-gray-200 font-medium">{team.name}</p>
+            <p className="text-gray-200 font-medium -ml-3">{team.name}</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 -ml-4 mt-4">
             <div className="flex items-center gap-3 text-gray-300">
               <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
               <span className="text-sm font-medium">{team.homeground}</span>
@@ -109,9 +116,9 @@ function TeamCard({ team }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 group/link cursor-pointer">
+          <div className="flex items-center gap-1 group/link cursor-pointer mt-18 ">
             <span
-              className={`text-sm font-bold ${teamColors.textColor} transition-all`}
+              className={`text-sm font-bold ${teamColors.textColor} transition-all -ml-4` }
             >
               View Squad & Details
             </span>

@@ -13,12 +13,11 @@ import {
   Calendar,
   PlusCircle,
   UserPlus,
-  Trophy,
   Menu,
   X,
-  Sparkles,
   LogOut,
 } from "lucide-react";
+import logo from "./images/logo.jpg";
 import { useAuth } from "./auth/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
@@ -69,13 +68,16 @@ function SidebarContent({ isActive, onNavigate }) {
     <div className="flex flex-col h-full bg-[#9C513E] border-r border-[#b05c48]/40 text-[#fdf3ef]">
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
-        <div className="bg-white/10 p-2 rounded-lg border border-[#f7d6c9]/40">
-          <Trophy className="w-6 h-6 text-amber-300" />
+        <div >
+          <img
+            src={logo}
+            alt="Logo"
+            className="w-8 h-8 rounded-md object-cover"
+          />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white tracking-wider flex items-center gap-1.5">
+          <h1 className="text-xl font-bold text-white tracking-wider">
             cricket
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
           </h1>
           <span className="text-xs text-[#f8dccb] font-semibold uppercase tracking-widest">
             PRO LEAGUE
@@ -197,7 +199,11 @@ function App() {
       {/* Mobile Top Navigation */}
       <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#9C513E] border-b border-[#b05c48]">
         <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-300" />
+          <img
+            src={logo}
+            alt="Logo"
+            className="w-6 h-6 rounded-md object-cover"
+          />
           <span className="font-bold text-white tracking-wide">cricket</span>
         </div>
         <button
