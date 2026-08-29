@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', 'Inter', sans-serif;
+  --color-cricket-dark: #ffffff;
+  --color-cricket-card: #ffffff;
+  --color-cricket-border: #d9e9e1;
+  --color-cricket-green: #059669;
+}
+
+body {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  background-color: #f7faf8;
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.07), transparent 45%),
+    radial-gradient(circle at 88% 8%, rgba(5, 150, 105, 0.05), transparent 40%);
+  background-attachment: fixed;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #eef4f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #bcd8cb;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
