@@ -9,6 +9,7 @@ import { useVerifyOtp } from "../hooks/useVerifyOtp";
 import { useResendOtp } from "../hooks/useResendOtp";
 import { extractErrorMessage } from "../api/client";
 import { ArrowLeft, User, Sparkles, Key } from "lucide-react";
+import { useAssignPlayerToTeam } from "../hooks/useAssignPlayerToTeam";
 
 const PLAYER_ROLES = [
   { value: "playing_11", label: "Playing XI" },
@@ -56,7 +57,7 @@ function AddPlayerPage() {
     level_id: "",
     role: "",
   });
-
+  const assignPlayerToTeam = useAssignPlayerToTeam();
   const selectedCountry = countries?.find(
     (c) => c.id === Number(form.country_id),
   );
@@ -86,39 +87,50 @@ function AddPlayerPage() {
       setFormError("Mobile number must contain 7 to 15 digits.");
       return;
     }
-
     if (Number(form.height) <= 0 || Number(form.weight) <= 0) {
       setFormError("Height and weight must be greater than zero.");
       return;
     }
-
     if (!form.team_id) {
       setFormError("Please select a team for the player.");
       return;
     }
-
     if (!form.level_id) {
       setFormError("Please select the player's level.");
       return;
     }
 
     try {
+      // Only send fields PlayerCreate actually accepts — team_id/level_id/role
+      // are NOT part of this schema, so they must go through a separate call.
+      const {
+        team_id,
+        level_id,
+        role, // pulled out, sent separately below
+        ...playerFields
+      } = form;
+
       const payload = {
-        ...form,
+        ...playerFields,
         profile_image: form.profile_image || null,
-        country_id: form.country_id ? Number(form.country_id) : form.country_id,
-        state_id: form.state_id ? Number(form.state_id) : form.state_id,
-        city_id: form.city_id ? Number(form.city_id) : form.city_id,
-        height: form.height ? Number(form.height) : form.height,
-        weight: form.weight ? Number(form.weight) : form.weight,
-        mobile_number: form.mobile_number
-          ? Number(form.mobile_number)
-          : form.mobile_number,
-        team_id: form.team_id ? Number(form.team_id) : form.team_id,
-        level_id: form.level_id ? Number(form.level_id) : form.level_id,
-        role: form.role || "playing_11",
+        country_id: Number(form.country_id),
+        state_id: Number(form.state_id),
+        city_id: Number(form.city_id),
+        height: Number(form.height),
+        weight: Number(form.weight),
+        mobile_number: Number(form.mobile_number),
       };
+
       const result = await createPlayer.mutateAsync(payload);
+
+      // Now assign the created player to their team — separate endpoint
+      await assignPlayerToTeam.mutateAsync({
+        playerId: result.id,
+        team_id: Number(team_id),
+        level_id: Number(level_id),
+        role: role || "playing_11",
+      });
+
       setCreatedPlayer(result);
       setStep("otp");
     } catch (err) {
@@ -323,12 +335,12 @@ function AddPlayerPage() {
                   Select gender
                 </option>
                 <option value="male" className="bg-cricket-card">
-                  male
+                  Male
                 </option>
-                <option value="Female" className="bg-cricket-card">
+                <option value="female" className="bg-cricket-card">
                   Female
                 </option>
-                <option value="Other" className="bg-cricket-card">
+                <option value="other" className="bg-cricket-card">
                   Other
                 </option>
               </select>
@@ -605,7 +617,11 @@ function AddPlayerPage() {
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
                   {PLAYER_ROLES.map((r) => (
-                    <option key={r.value} value={r.value} className="bg-cricket-card">
+                    <option
+                      key={r.value}
+                      value={r.value}
+                      className="bg-cricket-card"
+                    >
                       {r.label}
                     </option>
                   ))}

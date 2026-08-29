@@ -141,7 +141,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#f7faf8] text-gray-800 flex flex-col md:flex-row font-sans">
       {/* Mobile Top Navigation */}
-      <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[##9C513E] border-b border-[#b05c48]">
+      <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#9C513E] border-b border-[#b05c48]">
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-amber-300" />
           <span className="font-bold text-white tracking-wide">CRICLET</span>
@@ -175,7 +175,7 @@ function App() {
             onClick={() => setMobileMenuOpen(false)}
           ></div>
           {/* Sidebar Panel */}
-          <div className="relative w-64 max-w-xs flex-1 flex flex-col h-full bg-[##9C513E]">
+          <div className="relative w-64 max-w-xs flex-1 flex flex-col h-full bg-[#9C513E]">
             <div className="absolute top-0 right-0 p-4">
               <button
                 onClick={() => setMobileMenuOpen(false)}

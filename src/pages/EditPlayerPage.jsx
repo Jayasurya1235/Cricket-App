@@ -9,6 +9,7 @@ import { useUpdatePlayer } from "../hooks/useUpdatePlayer";
 import { useDeletePlayer } from "../hooks/useDeletePlayer";
 import { extractErrorMessage } from "../api/client";
 import { ArrowLeft, User, Sparkles, Trash2, ShieldAlert } from "lucide-react";
+import { useUpdatePlayerTeamRole } from "../hooks/useUpdatePlayerTeamRole";
 
 const PLAYER_ROLES = [
   { value: "playing_11", label: "Playing XI" },
@@ -16,7 +17,6 @@ const PLAYER_ROLES = [
   { value: "coach", label: "Coach" },
   { value: "support_staff", label: "Support Staff" },
 ];
-
 function buildInitial(player) {
   return {
     first_name: player.first_name ?? "",
@@ -50,6 +50,7 @@ function EditPlayerForm({ player, playerId }) {
   const { data: teams } = useTeams();
   const updatePlayer = useUpdatePlayer();
   const deletePlayer = useDeletePlayer();
+  const updatePlayerTeamRole = useUpdatePlayerTeamRole();
 
   const [form, setForm] = useState(() => buildInitial(player));
   const [formError, setFormError] = useState("");
@@ -83,29 +84,39 @@ function EditPlayerForm({ player, playerId }) {
       setFormError("Mobile number must contain 7 to 15 digits.");
       return;
     }
-
     if (Number(form.height) <= 0 || Number(form.weight) <= 0) {
       setFormError("Height and weight must be greater than zero.");
       return;
     }
 
     try {
+      // team_id/level_id/role are NOT part of PlayerUpdate — strip them out
+      const { team_id, role, ...playerFields } = form;
+
       const payload = {
-        ...form,
+        ...playerFields,
         profile_image: form.profile_image || null,
         country_id: form.country_id ? Number(form.country_id) : null,
         state_id: form.state_id ? Number(form.state_id) : null,
         city_id: form.city_id ? Number(form.city_id) : null,
         height: form.height ? Number(form.height) : null,
         weight: form.weight ? Number(form.weight) : null,
-        mobile_number: form.mobile_number
-          ? Number(form.mobile_number)
-          : null,
-        team_id: form.team_id ? Number(form.team_id) : null,
-        level_id: form.level_id ? Number(form.level_id) : null,
-        role: form.role || "playing_11",
+        mobile_number: form.mobile_number ? Number(form.mobile_number) : null,
       };
+
       await updatePlayer.mutateAsync({ id: playerId, data: payload });
+
+      // Update the role on the existing team assignment, if one changed.
+      // Note: this endpoint only updates ROLE — changing team or level
+      // requires removing the old assignment and creating a new one.
+      if (team_id && role) {
+        await updatePlayerTeamRole.mutateAsync({
+          playerId,
+          teamId: Number(team_id),
+          role,
+        });
+      }
+
       navigate("/players");
     } catch (err) {
       setFormError(extractErrorMessage(err));
@@ -212,9 +223,15 @@ function EditPlayerForm({ player, playerId }) {
                 <option value="" className="bg-cricket-card">
                   Select gender
                 </option>
-                <option value="Male" className="bg-cricket-card">Male</option>
-                <option value="Female" className="bg-cricket-card">Female</option>
-                <option value="Other" className="bg-cricket-card">Other</option>
+                <option value="male" className="bg-cricket-card">
+                  Male
+                </option>
+                <option value="female" className="bg-cricket-card">
+                  Female
+                </option>
+                <option value="other" className="bg-cricket-card">
+                  Other
+                </option>
               </select>
             </div>
           </div>
@@ -246,9 +263,15 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("batting_hand", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">Select</option>
-                <option value="Right" className="bg-cricket-card">Right</option>
-                <option value="Left" className="bg-cricket-card">Left</option>
+                <option value="" className="bg-cricket-card">
+                  Select
+                </option>
+                <option value="Right" className="bg-cricket-card">
+                  Right
+                </option>
+                <option value="Left" className="bg-cricket-card">
+                  Left
+                </option>
               </select>
             </div>
             <div>
@@ -259,7 +282,9 @@ function EditPlayerForm({ player, playerId }) {
                 type="text"
                 required
                 value={form.batting_position}
-                onChange={(e) => handleChange("batting_position", e.target.value)}
+                onChange={(e) =>
+                  handleChange("batting_position", e.target.value)
+                }
                 placeholder="e.g. Opener, Middle Order"
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
               />
@@ -278,9 +303,15 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("bowling_hand", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">Select</option>
-                <option value="Right" className="bg-cricket-card">Right</option>
-                <option value="Left" className="bg-cricket-card">Left</option>
+                <option value="" className="bg-cricket-card">
+                  Select
+                </option>
+                <option value="Right" className="bg-cricket-card">
+                  Right
+                </option>
+                <option value="Left" className="bg-cricket-card">
+                  Left
+                </option>
               </select>
             </div>
             <div>
@@ -340,7 +371,9 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("country_id", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">Select country</option>
+                <option value="" className="bg-cricket-card">
+                  Select country
+                </option>
                 {countries?.map((c) => (
                   <option key={c.id} value={c.id} className="bg-cricket-card">
                     {c.name}
@@ -359,7 +392,9 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("state_id", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 disabled:opacity-40 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">Select state</option>
+                <option value="" className="bg-cricket-card">
+                  Select state
+                </option>
                 {selectedCountry?.states?.map((s) => (
                   <option key={s.id} value={s.id} className="bg-cricket-card">
                     {s.name}
@@ -378,9 +413,15 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("city_id", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 disabled:opacity-40 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">Select city</option>
+                <option value="" className="bg-cricket-card">
+                  Select city
+                </option>
                 {selectedState?.cities?.map((city) => (
-                  <option key={city.id} value={city.id} className="bg-cricket-card">
+                  <option
+                    key={city.id}
+                    value={city.id}
+                    className="bg-cricket-card"
+                  >
                     {city.name}
                   </option>
                 ))}
@@ -407,7 +448,9 @@ function EditPlayerForm({ player, playerId }) {
                   onChange={(e) => handleChange("team_id", e.target.value)}
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
-                  <option value="" className="bg-cricket-card">Select team</option>
+                  <option value="" className="bg-cricket-card">
+                    Select team
+                  </option>
                   {teams?.map((t) => (
                     <option key={t.id} value={t.id} className="bg-cricket-card">
                       {t.name}
@@ -425,9 +468,15 @@ function EditPlayerForm({ player, playerId }) {
                   onChange={(e) => handleChange("level_id", e.target.value)}
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
-                  <option value="" className="bg-cricket-card">Select level</option>
+                  <option value="" className="bg-cricket-card">
+                    Select level
+                  </option>
                   {levels?.map((lvl) => (
-                    <option key={lvl.id} value={lvl.id} className="bg-cricket-card">
+                    <option
+                      key={lvl.id}
+                      value={lvl.id}
+                      className="bg-cricket-card"
+                    >
                       {lvl.name}
                     </option>
                   ))}
@@ -443,7 +492,11 @@ function EditPlayerForm({ player, playerId }) {
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
                   {PLAYER_ROLES.map((r) => (
-                    <option key={r.value} value={r.value} className="bg-cricket-card">
+                    <option
+                      key={r.value}
+                      value={r.value}
+                      className="bg-cricket-card"
+                    >
                       {r.label}
                     </option>
                   ))}
@@ -464,9 +517,15 @@ function EditPlayerForm({ player, playerId }) {
                 onChange={(e) => handleChange("country_code", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
-                <option value="" className="bg-cricket-card">--</option>
+                <option value="" className="bg-cricket-card">
+                  --
+                </option>
                 {countryCodes?.map((cc) => (
-                  <option key={cc.code} value={cc.code} className="bg-cricket-card">
+                  <option
+                    key={cc.code}
+                    value={cc.code}
+                    className="bg-cricket-card"
+                  >
                     {cc.code}
                   </option>
                 ))}
@@ -529,16 +588,18 @@ function EditPlayerForm({ player, playerId }) {
 
 function EditPlayerPage() {
   const { playerId } = useParams();
-  const { data: player, isLoading: playerLoading, isError, error } =
-    usePlayer(playerId);
+  const {
+    data: player,
+    isLoading: playerLoading,
+    isError,
+    error,
+  } = usePlayer(playerId);
 
   if (playerLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">
-          Loading athlete profile...
-        </p>
+        <p className="text-gray-500 mt-4 text-sm">Loading athlete profile...</p>
       </div>
     );
   }
@@ -565,13 +626,7 @@ function EditPlayerPage() {
     );
   }
 
-  return (
-    <EditPlayerForm
-      key={player.id}
-      player={player}
-      playerId={playerId}
-    />
-  );
+  return <EditPlayerForm key={player.id} player={player} playerId={playerId} />;
 }
 
 export default EditPlayerPage;
