@@ -56,7 +56,8 @@ function SidebarContent({ isActive, onNavigate }) {
     navigate("/login", { replace: true });
   }
 
-  const initials = (user?.name || "U")
+  const displayName = user?.full_name || "User";
+  const initials = displayName
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -144,15 +145,23 @@ function SidebarContent({ isActive, onNavigate }) {
 
       {/* Footer / User Profile */}
       <div className="p-4 border-t border-white/10 bg-[#a8553f]/50 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-[#fff3ee] font-bold">
-          {initials}
-        </div>
+        {user?.profile_picture ? (
+          <img
+            src={user.profile_picture}
+            alt={displayName}
+            className="w-9 h-9 rounded-full object-cover border border-white/25"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-[#fff3ee] font-bold">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white truncate">
-            {user?.name || "User"}
+            {displayName}
           </p>
           <p className="text-xs text-[#f7dccf]/80 truncate">
-            {user?.email || "Administrator"}
+            {user?.email}
           </p>
         </div>
         <button

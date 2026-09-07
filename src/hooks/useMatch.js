@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { matchesMockApi } from '../api/matchesMock'
+import { matchesApi } from '../api/matches'
 
 export function useMatch(matchId) {
   return useQuery({
     queryKey: ['matches', matchId],
-    queryFn: () => matchesMockApi.getById(matchId),
+    queryFn: () => matchesApi.getById(matchId),
     enabled: !!matchId,
   })
 }

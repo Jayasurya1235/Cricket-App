@@ -8,16 +8,16 @@ import {
 } from "react";
 import {
   login as loginRequest,
+  googleLogin as googleLoginRequest,
   register as registerRequest,
+  sendRegisterOtp as sendRegisterOtpRequest,
+  verifyRegisterOtp as verifyRegisterOtpRequest,
   logout as logoutRequest,
   getCurrentUser,
 } from "../api/auth";
 
 const AuthContext = createContext(null);
 
-// Restores the session synchronously at startup so the app can decide on the
-// very first render whether the user is authenticated (no flash of the login
-// page when a valid session already exists).
 function initialUser() {
   try {
     const raw = localStorage.getItem("cricket.auth.session");
@@ -31,8 +31,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => initialUser());
   const [isReady, setIsReady] = useState(false);
 
-  // On mount, validate the persisted session against the auth service. For the
-  // mock this resolves immediately; a real backend would re-validate the token.
   useEffect(() => {
     let cancelled = false;
     async function validate() {
@@ -57,6 +55,20 @@ export function AuthProvider({ children }) {
     return loggedInUser;
   }, []);
 
+  const googleLogin = useCallback(async (idToken, profile) => {
+    const loggedInUser = await googleLoginRequest(idToken, profile);
+    setUser(loggedInUser);
+    return loggedInUser;
+  }, []);
+
+  const sendRegisterOtp = useCallback(async (email) => {
+    return await sendRegisterOtpRequest(email);
+  }, []);
+
+  const verifyRegisterOtp = useCallback(async ({ email, otp_code }) => {
+    return await verifyRegisterOtpRequest({ email, otp_code });
+  }, []);
+
   const register = useCallback(async (details) => {
     const registeredUser = await registerRequest(details);
     setUser(registeredUser);
@@ -69,15 +81,23 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isReady, isAuthenticated: !!user, login, register, logout }),
-    [user, isReady, login, register, logout],
+    () => ({
+      user,
+      isReady,
+      isAuthenticated: !!user,
+      login,
+      googleLogin,
+      register,
+      sendRegisterOtp,
+      verifyRegisterOtp,
+      logout,
+    }),
+    [user, isReady, login, googleLogin, register, sendRegisterOtp, verifyRegisterOtp, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Convenience hook to consume auth state anywhere in the app. Co-located with
-// the provider for a single import surface.
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);

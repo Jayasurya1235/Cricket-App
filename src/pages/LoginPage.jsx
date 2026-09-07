@@ -11,10 +11,11 @@ import {
   LogIn,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { mockDemoCredentials } from "../api/auth";
+import { extractErrorMessage } from "../api/client";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 function LoginPage() {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,21 +26,12 @@ function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Already logged in users shouldn't see the login page.
   if (isAuthenticated) {
     return <Navigate to={from} replace />;
   }
 
   function handleChange(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  function fillDemo() {
-    setForm({
-      email: mockDemoCredentials.email,
-      password: mockDemoCredentials.password,
-    });
-    setError("");
   }
 
   async function handleSubmit(e) {
@@ -50,12 +42,19 @@ function LoginPage() {
       await login({ email: form.email, password: form.password });
       navigate(from, { replace: true });
     } catch (err) {
-      setError(
-        err?.message ||
-          "Login failed. Please check your credentials and retry.",
-      );
+      setError(extractErrorMessage(err));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleToken(idToken, profile) {
+    setError("");
+    try {
+      await googleLogin(idToken, profile);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(extractErrorMessage(err));
     }
   }
 
@@ -85,6 +84,19 @@ function LoginPage() {
             <p className="text-xs text-gray-500 mt-1">
               Sign in to manage teams, players and matches.
             </p>
+          </div>
+
+          <GoogleSignInButton
+            onToken={handleGoogleToken}
+            onError={setError}
+          />
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-cricket-border"></div>
+            <span className="text-[11px] uppercase font-bold text-gray-400">
+              or continue with email
+            </span>
+            <div className="flex-1 h-px bg-cricket-border"></div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -152,26 +164,6 @@ function LoginPage() {
               {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
-
-          {/* Demo hint for the mock auth layer */}
-          <div className="border-t border-cricket-border/60 pt-4 text-xs text-gray-500 space-y-2">
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="block w-full text-left bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-100 transition"
-            >
-              <span className="font-semibold text-emerald-700">
-                Use demo account
-              </span>
-              <span className="block mt-0.5 text-gray-600">
-                {mockDemoCredentials.email} / {mockDemoCredentials.password}
-              </span>
-            </button>
-            <p className="text-[11px] leading-relaxed">
-              Authentication uses a local demo layer until a real backend is
-              connected. You can also register a new account below.
-            </p>
-          </div>
         </div>
 
         <p className="text-center text-sm text-gray-600">

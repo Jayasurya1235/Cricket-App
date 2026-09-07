@@ -6,6 +6,17 @@ import { emptyMatchForm } from "../api/matchSchema";
 import { extractErrorMessage } from "../api/client";
 import { ArrowLeft, Calendar, Sparkles, ShieldAlert } from "lucide-react";
 
+const MATCH_TYPES = [
+  { value: "Test", label: "Test" },
+  { value: "ODI", label: "ODI (50 overs)" },
+  { value: "T20", label: "T20" },
+];
+
+const TOSS_DECISIONS = [
+  { value: "Bat", label: "Bat" },
+  { value: "Bowl", label: "Bowl" },
+];
+
 function AddMatchPage() {
   const navigate = useNavigate();
   const { data: teams, isLoading: teamsLoading } = useTeams();
@@ -14,26 +25,20 @@ function AddMatchPage() {
   const [form, setForm] = useState(emptyMatchForm);
   const [formError, setFormError] = useState("");
 
-  const team1 = teams?.find((t) => t.id === Number(form.team1_id));
-  const team2 = teams?.find((t) => t.id === Number(form.team2_id));
+  const teamA = teams?.find((t) => t.id === Number(form.team_a_id));
+  const teamB = teams?.find((t) => t.id === Number(form.team_b_id));
 
   function handleChange(field, value) {
     setForm((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === "team1_id") updated.team1_playing_xi = [];
-      if (field === "team2_id") updated.team2_playing_xi = [];
+      // If teams change, reset the toss winner since it must be one of them
+      if (field === "team_a_id" || field === "team_b_id") {
+        const a = Number(updated.team_a_id);
+        const b = Number(updated.team_b_id);
+        const winner = Number(updated.toss_winner_id);
+        if (winner !== a && winner !== b) updated.toss_winner_id = "";
+      }
       return updated;
-    });
-  }
-
-  function togglePlayer(teamKey, playerId) {
-    setForm((prev) => {
-      const current = prev[teamKey];
-      const exists = current.includes(playerId);
-      const updated = exists
-        ? current.filter((id) => id !== playerId)
-        : [...current, playerId];
-      return { ...prev, [teamKey]: updated };
     });
   }
 
@@ -41,25 +46,38 @@ function AddMatchPage() {
     e.preventDefault();
     setFormError("");
 
-    if (form.team1_id === form.team2_id) {
-      setFormError("Team 1 and Team 2 cannot be the same team.");
+    if (!form.team_a_id || !form.team_b_id) {
+      setFormError("Please select both competing teams.");
       return;
     }
-    if (
-      form.team1_playing_xi.length === 0 ||
-      form.team2_playing_xi.length === 0
-    ) {
-      setFormError("Select at least one playing player for each team.");
+    if (form.team_a_id === form.team_b_id) {
+      setFormError("Home Squad and Away Squad cannot be the same team.");
+      return;
+    }
+    if (!form.toss_winner_id) {
+      setFormError("Please select which team won the toss.");
+      return;
+    }
+    if (!form.toss_decision) {
+      setFormError("Please select the toss decision (Bat or Bowl).");
       return;
     }
 
     try {
       const payload = {
-        ...form,
-        team1_id: Number(form.team1_id),
-        team2_id: Number(form.team2_id),
+        match_type: form.match_type,
+        venue: form.venue,
+        match_date: form.match_date,
+        match_time: form.match_time,
+        team_a_id: Number(form.team_a_id),
+        team_b_id: Number(form.team_b_id),
+        toss_winner_id: Number(form.toss_winner_id),
+        toss_decision: form.toss_decision,
+        result: form.result || null,
+        referee_1_name: form.referee_1_name || null,
+        referee_2_name: form.referee_2_name || null,
+        match_referee_name: form.match_referee_name || null,
       };
-      if (form.toss_won_by) payload.toss_won_by = Number(form.toss_won_by);
       const newMatch = await createMatch.mutateAsync(payload);
       navigate(`/matches/${newMatch.id}`);
     } catch (err) {
@@ -117,8 +135,8 @@ function AddMatchPage() {
               <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
             </h1>
             <p className="text-xs text-gray-500">
-              Configure venues, competing teams, assign playing XIs, and set
-              match rules.
+              Configure venues, competing teams, toss outcome and match
+              officials.
             </p>
           </div>
         </div>
@@ -138,15 +156,11 @@ function AddMatchPage() {
               <option value="" className="bg-cricket-card">
                 Select match type
               </option>
-              <option value="Test" className="bg-cricket-card">
-                Test
-              </option>
-              <option value="ODI" className="bg-cricket-card">
-                ODI (50 overs)
-              </option>
-              <option value="T20" className="bg-cricket-card">
-                T20
-              </option>
+              {MATCH_TYPES.map((mt) => (
+                <option key={mt.value} value={mt.value} className="bg-cricket-card">
+                  {mt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -197,111 +211,49 @@ function AddMatchPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Home Squad (Team 1)
+                Home Squad (Team A)
               </label>
               <select
                 required
-                value={form.team1_id}
-                onChange={(e) => handleChange("team1_id", e.target.value)}
+                value={form.team_a_id}
+                onChange={(e) => handleChange("team_a_id", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
                 <option value="" className="bg-cricket-card">
                   Select Home Team
                 </option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-cricket-card">
-                    {t.name}
-                  </option>
-                ))}
+                {teams
+                  .filter((t) => !form.team_b_id || t.id !== Number(form.team_b_id))
+                  .map((t) => (
+                    <option key={t.id} value={t.id} className="bg-cricket-card">
+                      {t.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
               <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Away Squad (Team 2)
+                Away Squad (Team B)
               </label>
               <select
                 required
-                value={form.team2_id}
-                onChange={(e) => handleChange("team2_id", e.target.value)}
+                value={form.team_b_id}
+                onChange={(e) => handleChange("team_b_id", e.target.value)}
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
               >
                 <option value="" className="bg-cricket-card">
                   Select Away Team
                 </option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-cricket-card">
-                    {t.name}
-                  </option>
-                ))}
+                {teams
+                  .filter((t) => !form.team_a_id || t.id !== Number(form.team_a_id))
+                  .map((t) => (
+                    <option key={t.id} value={t.id} className="bg-cricket-card">
+                      {t.name}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
-
-          {/* Playing XI — Team 1 */}
-          {team1 && (
-            <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-3">
-              <h3 className="text-xs uppercase font-extrabold text-emerald-700 tracking-wider">
-                {team1.name} — Select Lineup Playing XI
-              </h3>
-              {!team1.players || team1.players.length === 0 ? (
-                <p className="text-xs text-gray-500">
-                  This squad is empty. Onboard members first.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {team1.players.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-2.5 text-xs text-gray-600 bg-white border border-cricket-border/70 rounded-lg p-2.5 cursor-pointer hover:border-emerald-300 transition"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.team1_playing_xi.includes(p.id)}
-                        onChange={() => togglePlayer("team1_playing_xi", p.id)}
-                        className="rounded accent-emerald-500 w-4 h-4 cursor-pointer"
-                      />
-                      <span className="truncate">
-                        {p.first_name} {p.last_name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Playing XI — Team 2 */}
-          {team2 && (
-            <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-3">
-              <h3 className="text-xs uppercase font-extrabold text-emerald-700 tracking-wider">
-                {team2.name} — Select Lineup Playing XI
-              </h3>
-              {!team2.players || team2.players.length === 0 ? (
-                <p className="text-xs text-gray-500">
-                  This squad is empty. Onboard members first.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {team2.players.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-2.5 text-xs text-gray-600 bg-white border border-cricket-border/70 rounded-lg p-2.5 cursor-pointer hover:border-emerald-300 transition"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.team2_playing_xi.includes(p.id)}
-                        onChange={() => togglePlayer("team2_playing_xi", p.id)}
-                        className="rounded accent-emerald-500 w-4 h-4 cursor-pointer"
-                      />
-                      <span className="truncate">
-                        {p.first_name} {p.last_name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Toss Details */}
           <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-4">
@@ -314,13 +266,16 @@ function AddMatchPage() {
                   Toss Won By
                 </label>
                 <select
-                  value={form.toss_won_by}
-                  onChange={(e) => handleChange("toss_won_by", e.target.value)}
+                  required
+                  value={form.toss_winner_id}
+                  onChange={(e) =>
+                    handleChange("toss_winner_id", e.target.value)
+                  }
                   className="w-full bg-cricket-card border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
-                  <option value="">Not decided yet</option>
-                  {team1 && <option value={team1.id}>{team1.name}</option>}
-                  {team2 && <option value={team2.id}>{team2.name}</option>}
+                  <option value="">Select toss winner</option>
+                  {teamA && <option value={teamA.id}>{teamA.name}</option>}
+                  {teamB && <option value={teamB.id}>{teamB.name}</option>}
                 </select>
               </div>
               <div>
@@ -328,6 +283,7 @@ function AddMatchPage() {
                   Toss Decision
                 </label>
                 <select
+                  required
                   value={form.toss_decision}
                   onChange={(e) =>
                     handleChange("toss_decision", e.target.value)
@@ -335,68 +291,83 @@ function AddMatchPage() {
                   className="w-full bg-cricket-card border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
                   <option value="">--</option>
-                  <option value="Bat">Bat</option>
-                  <option value="Bowl">Bowl</option>
+                  {TOSS_DECISIONS.map((td) => (
+                    <option key={td.value} value={td.value} className="bg-cricket-card">
+                      {td.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Toss Time
-              </label>
-              <input
-                type="time"
-                value={form.toss_time}
-                onChange={(e) => handleChange("toss_time", e.target.value)}
-                className="w-full bg-cricket-card border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
-              />
-            </div>
           </div>
 
-          {/* Referee & Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Match Officials */}
+          <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-4">
+            <h3 className="text-xs uppercase font-extrabold text-gray-600 tracking-wider">
+              Match Officials
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+                  Umpire 1
+                </label>
+                <input
+                  type="text"
+                  value={form.referee_1_name}
+                  onChange={(e) =>
+                    handleChange("referee_1_name", e.target.value)
+                  }
+                  className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                  placeholder="e.g. Kumar Dharmasena"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+                  Umpire 2
+                </label>
+                <input
+                  type="text"
+                  value={form.referee_2_name}
+                  onChange={(e) =>
+                    handleChange("referee_2_name", e.target.value)
+                  }
+                  className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                  placeholder="e.g. Richard Illingworth"
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
                 Match Referee
               </label>
               <input
                 type="text"
-                value={form.referee}
-                onChange={(e) => handleChange("referee", e.target.value)}
+                value={form.match_referee_name}
+                onChange={(e) =>
+                  handleChange("match_referee_name", e.target.value)
+                }
                 className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 placeholder="e.g. Javagal Srinath"
               />
             </div>
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Current Status
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => handleChange("status", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
-              >
-                <option value="Upcoming">Upcoming</option>
-                <option value="Live">Live</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
           </div>
 
-          {form.status === "Completed" && (
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Match Result Verdict
-              </label>
-              <input
-                type="text"
-                value={form.result}
-                onChange={(e) => handleChange("result", e.target.value)}
-                placeholder="e.g. India won by 6 wickets"
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
-              />
-            </div>
-          )}
+          {/* Result */}
+          <div>
+            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+              Match Result{" "}
+              <span className="normal-case font-normal">
+                (optional — usually set once the match is played)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={form.result}
+              onChange={(e) => handleChange("result", e.target.value)}
+              placeholder="e.g. India won by 6 wickets"
+              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+            />
+          </div>
 
           {formError && <p className="text-red-500 text-xs">{formError}</p>}
 

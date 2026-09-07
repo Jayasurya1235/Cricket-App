@@ -10,6 +10,7 @@ import { useResendOtp } from "../hooks/useResendOtp";
 import { extractErrorMessage } from "../api/client";
 import { ArrowLeft, User, Sparkles, Key } from "lucide-react";
 import { useAssignPlayerToTeam } from "../hooks/useAssignPlayerToTeam";
+import ProfileImageUpload from "../components/ProfileImageUpload";
 
 const PLAYER_ROLES = [
   { value: "playing_11", label: "Playing XI" },
@@ -347,20 +348,11 @@ function AddPlayerPage() {
             </div>
           </div>
 
-          {/* Optional profile image URL */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Profile Image URL{" "}
-              <span className="normal-case font-normal">(optional)</span>
-            </label>
-            <input
-              type="url"
-              value={form.profile_image}
-              onChange={(e) => handleChange("profile_image", e.target.value)}
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
-              placeholder="https://example.com/player-photo.jpg"
-            />
-          </div>
+          {/* Optional profile image upload */}
+          <ProfileImageUpload
+            value={form.profile_image}
+            onChange={(v) => handleChange("profile_image", v)}
+          />
 
           {/* Batting Attributes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMatches } from "../hooks/useMatches";
 import { useTeams } from "../hooks/useTeams";
+import { getMatchStatus } from "../api/matchSchema";
 import {
   MapPin,
   Calendar,
@@ -12,6 +13,7 @@ import {
 
 const STATUS_STYLES = {
   Upcoming: "bg-blue-50 text-blue-600 border-blue-200",
+  Scheduled: "bg-blue-50 text-blue-600 border-blue-200",
   Live: "bg-red-50 text-red-600 border-red-200 animate-pulse",
   Completed: "bg-gray-100 text-gray-500 border-gray-200",
 };
@@ -69,7 +71,7 @@ function MatchesPage() {
             Fixtures & Schedule
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Displaying {matches.length} tournament matches across upcoming,
+            Displaying {matches.length} tournament matches across scheduled,
             live, and past events.
           </p>
         </div>
@@ -83,12 +85,18 @@ function MatchesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {matches.map((match) => {
-          const team1 = teams?.find((t) => t.id === match.team1_id);
-          const team2 = teams?.find((t) => t.id === match.team2_id);
-          const statusClass =
-            STATUS_STYLES[match.status] || STATUS_STYLES.Upcoming;
-          const isLive = match.status === "Live";
-          const isCompleted = match.status === "Completed";
+          // The backend response embeds team_a/team_b; fall back to the local
+          // teams list for older/partial payloads.
+          const team1 =
+            match.team_a ||
+            teams?.find((t) => t.id === match.team_a_id || t.id === match.team1_id);
+          const team2 =
+            match.team_b ||
+            teams?.find((t) => t.id === match.team_b_id || t.id === match.team2_id);
+          const status = getMatchStatus(match);
+          const statusClass = STATUS_STYLES[status] || STATUS_STYLES.Scheduled;
+          const isLive = status === "Live";
+          const isCompleted = status === "Completed";
 
           return (
             <Link
@@ -111,7 +119,7 @@ function MatchesPage() {
                     {isCompleted && (
                       <Trophy className="w-3 h-3 text-amber-500" />
                     )}
-                    {match.status}
+                    {status}
                   </span>
                 </div>
 

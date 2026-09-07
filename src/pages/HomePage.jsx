@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useTeams } from "../hooks/useTeams";
 import { usePlayers } from "../hooks/usePlayers";
 import { useMatches } from "../hooks/useMatches";
+import { getMatchStatus } from "../api/matchSchema";
 import {
   Users,
   Calendar,
@@ -170,8 +171,9 @@ function HomePage() {
                   </thead>
                   <tbody className="divide-y divide-cricket-border/60">
                     {recentMatches.map((match) => {
-                      const isLive = match.status === "Live";
-                      const isCompleted = match.status === "Completed";
+                      const status = getMatchStatus(match);
+                      const isLive = status === "Live";
+                      const isCompleted = status === "Completed";
                       return (
                         <tr
                           key={match.id}
@@ -212,7 +214,7 @@ function HomePage() {
                               {isLive && (
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                               )}
-                              {match.status}
+                              {status}
                             </span>
                           </td>
                         </tr>

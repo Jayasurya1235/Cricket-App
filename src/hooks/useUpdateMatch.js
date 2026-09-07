@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { matchesApi } from "../api/matches";
 
-export function useCreateMatch() {
+export function useUpdateMatch() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data) => matchesApi.create(data),
+    mutationFn: ({ id, data }) => matchesApi.update({ id, data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matches"] });
     },

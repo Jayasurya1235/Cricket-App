@@ -20,7 +20,11 @@ function PlayersPage() {
   const deletePlayer = useDeletePlayer();
 
   async function handleDelete(player) {
-    if (!confirm(`Delete player "${player.first_name} ${player.last_name}"? This cannot be undone.`))
+    if (
+      !confirm(
+        `Delete player "${player.first_name} ${player.last_name}"? This cannot be undone.`,
+      )
+    )
       return;
     try {
       await deletePlayer.mutateAsync(player.id);
@@ -227,5 +231,4 @@ function PlayersPage() {
     </div>
   );
 }
-
 export default PlayersPage;
