@@ -30,6 +30,7 @@ import EditPlayerPage from "./pages/EditPlayerPage";
 import MatchesPage from "./pages/MatchesPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import AddMatchPage from "./pages/AddMatchPage";
+import ScoringPage from "./pages/ScoringPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
@@ -285,6 +286,7 @@ function App() {
                 !isActive("/matches/new") &&
                 "Matches & Schedule"}
               {isActive("/matches/new") && "Schedule Match"}
+              {isActive("/matches") && location.pathname.includes("/score") && "Live Scoring"}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Manage teams, players, schedules and scores in real-time.
@@ -385,6 +387,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MatchDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/matches/:matchId/score"
+              element={
+                <ProtectedRoute>
+                  <ScoringPage />
                 </ProtectedRoute>
               }
             />

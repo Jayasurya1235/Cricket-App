@@ -13,8 +13,8 @@ const MATCH_TYPES = [
 ];
 
 const TOSS_DECISIONS = [
-  { value: "Bat", label: "Bat" },
-  { value: "Bowl", label: "Bowl" },
+  { value: "bat", label: "bat" },
+  { value: "bowl", label: "bowl" },
 ];
 
 function AddMatchPage() {

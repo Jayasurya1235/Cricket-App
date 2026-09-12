@@ -35,6 +35,7 @@ function AddPlayerPage() {
   const [formError, setFormError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [form, setForm] = useState({
     first_name: "",
@@ -92,22 +93,12 @@ function AddPlayerPage() {
       setFormError("Height and weight must be greater than zero.");
       return;
     }
-    if (!form.team_id) {
-      setFormError("Please select a team for the player.");
-      return;
-    }
-    if (!form.level_id) {
-      setFormError("Please select the player's level.");
-      return;
-    }
 
     try {
-      // Only send fields PlayerCreate actually accepts — team_id/level_id/role
-      // are NOT part of this schema, so they must go through a separate call.
       const {
         team_id,
         level_id,
-        role, // pulled out, sent separately below
+        role,
         ...playerFields
       } = form;
 
@@ -124,15 +115,17 @@ function AddPlayerPage() {
 
       const result = await createPlayer.mutateAsync(payload);
 
-      // Now assign the created player to their team — separate endpoint
-      await assignPlayerToTeam.mutateAsync({
-        playerId: result.id,
-        team_id: Number(team_id),
-        level_id: Number(level_id),
-        role: role || "playing_11",
-      });
+      if (team_id && level_id) {
+        await assignPlayerToTeam.mutateAsync({
+          playerId: result.id,
+          team_id: Number(team_id),
+          level_id: Number(level_id),
+          role: role || "playing_11",
+        });
+      }
 
       setCreatedPlayer(result);
+      setSuccessMessage("Player registered successfully!");
       setStep("otp");
     } catch (err) {
       setFormError(extractErrorMessage(err));
@@ -208,6 +201,12 @@ function AddPlayerPage() {
             </strong>
             . Please input the OTP code below to finalize your registration.
           </p>
+
+          {successMessage && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <p className="text-emerald-700 text-xs font-semibold">{successMessage}</p>
+            </div>
+          )}
 
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
@@ -541,6 +540,7 @@ function AddPlayerPage() {
               <span className="text-[11px] uppercase font-bold text-gray-500">
                 Team Assignment
               </span>
+              <span className="text-[10px] text-gray-400 normal-case font-normal">(optional — can be assigned later)</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -548,7 +548,6 @@ function AddPlayerPage() {
                   Team
                 </label>
                 <select
-                  required
                   value={form.team_id}
                   onChange={(e) => handleChange("team_id", e.target.value)}
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
@@ -574,7 +573,6 @@ function AddPlayerPage() {
                   Level
                 </label>
                 <select
-                  required
                   value={form.level_id}
                   onChange={(e) => handleChange("level_id", e.target.value)}
                   className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
@@ -695,5 +693,5 @@ function AddPlayerPage() {
     </div>
   );
 }
-
 export default AddPlayerPage;
+ 

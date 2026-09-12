@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useLocations } from "../hooks/useLocations";
 import { useLevels } from "../hooks/useLevels";
 import { useTeam } from "../hooks/useTeam";
 import { useCreateTeam } from "../hooks/useCreateTeam";
 import { useUpdateTeam } from "../hooks/useUpdateTeam";
+import { teamsApi } from "../api/teams";
 import { extractErrorMessage } from "../api/client";
-import { ArrowLeft, Shield, Sparkles } from "lucide-react";
+import { ArrowLeft, Shield, Sparkles, Camera, X } from "lucide-react";
 
 const EMPTY_FORM = {
   name: "",
@@ -47,6 +48,17 @@ function TeamForm({ team, isEdit, teamId }) {
   const [form, setForm] = useState(() => buildInitial(team));
 
   const [formError, setFormError] = useState("");
+  const logoInputRef = useRef(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(team?.logo || team?.logo_url || "");
+
+  useEffect(() => {
+    return () => {
+      if (logoPreview && logoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(logoPreview);
+      }
+    };
+  }, [logoPreview]);
 
   const selectedCountry = countries?.find(
     (c) => c.id === Number(form.country_id),
@@ -55,6 +67,33 @@ function TeamForm({ team, isEdit, teamId }) {
   const selectedState = selectedCountry?.states?.find(
     (s) => s.id === Number(form.state_id),
   );
+
+  function handleLogoChange(file) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setFormError("Please choose an image file (JPG, PNG, WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFormError("Image file is too large. Maximum size is 5 MB.");
+      return;
+    }
+    setFormError("");
+    setLogoFile(file);
+    if (logoPreview && logoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(logoPreview);
+    }
+    setLogoPreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveLogo() {
+    if (logoPreview && logoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(logoPreview);
+    }
+    setLogoFile(null);
+    setLogoPreview("");
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  }
 
   function handleChange(field, value) {
     setForm((prev) => {
@@ -85,9 +124,15 @@ function TeamForm({ team, isEdit, teamId }) {
       };
       if (isEdit) {
         await updateTeam.mutateAsync({ id: teamId, data: payload });
+        if (logoFile) {
+          await teamsApi.uploadLogo(teamId, logoFile);
+        }
         navigate(`/teams/${teamId}`);
       } else {
         const newTeam = await createTeam.mutateAsync(payload);
+        if (logoFile) {
+          await teamsApi.uploadLogo(newTeam.id, logoFile);
+        }
         navigate(`/teams/${newTeam.id}`);
       }
     } catch (err) {
@@ -310,6 +355,57 @@ function TeamForm({ team, isEdit, teamId }) {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Team Logo Upload */}
+          <div>
+            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+              Team Image
+              <span className="normal-case font-normal"> (optional)</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20 rounded-xl bg-cricket-dark border border-cricket-border overflow-hidden flex items-center justify-center shrink-0">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Team logo preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Shield className="w-7 h-7 text-gray-400" />
+                )}
+                {logoPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow transition"
+                    title="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleLogoChange(e.target.files?.[0])}
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {logoPreview ? "Change Image" : "Upload Image"}
+                </button>
+                <p className="text-[11px] text-gray-400">
+                  JPG, PNG or WebP up to 5 MB.
+                </p>
+              </div>
             </div>
           </div>
 

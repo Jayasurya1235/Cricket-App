@@ -7,8 +7,9 @@ export function useAddPlayerToTeam(teamId) {
   return useMutation({
     mutationFn: (data) => teamsApi.addPlayer(teamId, data),
     onSuccess: () => {
-      // Refresh this specific team's data so the new player shows up in the squad
       queryClient.invalidateQueries({ queryKey: ['teams', teamId] })
+      queryClient.invalidateQueries({ queryKey: ['players'] })
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
     },
   })
 }

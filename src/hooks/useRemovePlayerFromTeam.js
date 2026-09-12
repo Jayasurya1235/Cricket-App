@@ -8,6 +8,8 @@ export function useRemovePlayerFromTeam(teamId) {
     mutationFn: (playerId) => teamsApi.removePlayer(teamId, playerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teams", teamId] });
+      queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
   });
 }

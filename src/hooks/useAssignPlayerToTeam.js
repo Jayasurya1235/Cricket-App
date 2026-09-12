@@ -11,6 +11,9 @@ export function useAssignPlayerToTeam() {
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       queryClient.invalidateQueries({
+        queryKey: ["teams", variables.team_id],
+      });
+      queryClient.invalidateQueries({
         queryKey: ["players", variables.playerId, "teams"],
       });
     },

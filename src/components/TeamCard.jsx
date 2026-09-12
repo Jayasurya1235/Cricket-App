@@ -48,7 +48,7 @@ function TeamCard({ team }) {
   const navigate = useNavigate();
   const deleteTeam = useDeleteTeam();
   const teamColors = TEAM_COLORS[team.short_name] || TEAM_COLORS.DEFAULT;
-  const teamImage = TEAM_IMAGES[team.short_name];
+  const teamImage = team.logo || team.logo_url || TEAM_IMAGES[team.short_name];
 
   async function handleDelete(e) {
     e.preventDefault();
@@ -111,7 +111,12 @@ function TeamCard({ team }) {
             <div className="flex items-center gap-3 text-gray-300">
               <Users className="w-5 h-5 text-gray-400 shrink-0" />
               <span className="text-sm font-medium">
-                {team.players?.length ?? 0} Players Registered
+                {team.total ??
+                  team.players?.length ??
+                  (team.playing_11?.length ?? 0) +
+                    (team.substitutes?.length ?? 0) +
+                    (team.bench?.length ?? 0)}{" "}
+                Players Registered
               </span>
             </div>
           </div>

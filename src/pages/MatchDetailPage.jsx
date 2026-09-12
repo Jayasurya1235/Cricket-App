@@ -11,6 +11,7 @@ import {
   Coins,
   User,
   ShieldAlert,
+  Play,
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -117,7 +118,7 @@ function MatchDetailPage() {
             Fixture Match #{match.id}
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${statusClass}`}
           >
@@ -126,6 +127,13 @@ function MatchDetailPage() {
             )}
             {status}
           </span>
+          <Link
+            to={`/matches/${match.id}/score`}
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm"
+          >
+            <Play className="w-3 h-3" />
+            Score
+          </Link>
         </div>
       </div>
 
