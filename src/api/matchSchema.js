@@ -2,7 +2,7 @@
 // this is just documentation so we stay consistent across files).
 //
 // Verified against the backend OpenAPI spec at
-// https://cricketapp.in/openapi.json — schemas MatchCreate / MatchResponse.
+// http://192.168.1.36:8000/openapi.json — schemas MatchCreate / MatchResponse.
 //
 // Required for create: match_date, match_time, venue, match_type,
 //   team_a_id, team_b_id, toss_winner_id, toss_decision.

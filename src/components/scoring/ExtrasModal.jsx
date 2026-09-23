@@ -7,7 +7,9 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
   const typeConfig = {
     wide: {
       label: "Wide",
-      description: "Wide ball — 1 run added automatically",
+      description: "1 run for the wide plus any runs taken",
+      style: "wd",
+      badge: "Wd",
       color: "rose",
       borderColor: "border-rose-500",
       bgColor: "bg-rose-50",
@@ -15,7 +17,9 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
     },
     no_ball: {
       label: "No Ball",
-      description: "No ball — 1 run added automatically",
+      description: "1 run for the no ball plus batsman runs",
+      style: "nb",
+      badge: "Nb",
       color: "orange",
       borderColor: "border-orange-500",
       bgColor: "bg-orange-50",
@@ -23,7 +27,9 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
     },
     bye: {
       label: "Bye",
-      description: "Byes — runs that don't count to batsman",
+      description: "Runs that don't count to the batsman",
+      style: "b",
+      badge: "B",
       color: "sky",
       borderColor: "border-sky-500",
       bgColor: "bg-sky-50",
@@ -31,7 +37,9 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
     },
     leg_bye: {
       label: "Leg Bye",
-      description: "Leg byes — runs off the batsman's body/pads",
+      description: "Runs off the batsman's body / pads",
+      style: "lb",
+      badge: "LB",
       color: "teal",
       borderColor: "border-teal-500",
       bgColor: "bg-teal-50",
@@ -41,17 +49,32 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
 
   const config = typeConfig[extrasType] || typeConfig.wide;
 
-  const RUNS = extrasType === "bye" || extrasType === "leg_bye"
-    ? [1, 2, 3, 4]
-    : [0, 1, 2, 3, 4];
+  const RUNS =
+    extrasType === "bye" || extrasType === "leg_bye"
+      ? [1, 2, 3, 4]
+      : [0, 1, 2, 3, 4];
+
+  // wide:   runs_extras = 1 + additional runs
+  // no_ball: runs_extras = 1, runs_batsman = additional runs
+  // bye / leg_bye: runs_extras = runs
+  const noBallRuns = extrasType === "no_ball" ? extraRuns : 0;
+  const totalRuns =
+    extrasType === "wide"
+      ? 1 + extraRuns
+      : extrasType === "no_ball"
+        ? 1 + extraRuns
+        : extraRuns;
 
   function handleSubmit() {
-    const data = {
-      extras_type: extrasType,
-      runs: extraRuns,
-      extra_runs: extrasType === "wide" || extrasType === "no_ball" ? 1 + extraRuns : extraRuns,
-    };
-    onConfirm(data);
+    onConfirm({
+      extra_type: extrasType,
+      runs_batsman: noBallRuns,
+      runs_extras:
+        extrasType === "wide" ? 1 + extraRuns : extrasType === "no_ball" ? 1 : extraRuns,
+      total: totalRuns,
+      label: config.badge,
+      style: config.style,
+    });
   }
 
   return (
@@ -79,7 +102,7 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
             <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2.5">
               {extrasType === "bye" || extrasType === "leg_bye"
                 ? "How many runs?"
-                : "Additional runs (batsman runs)"}
+                : "Runs on the ball"}
             </label>
             <div className="grid grid-cols-5 gap-2">
               {RUNS.map((r) => (
@@ -111,7 +134,7 @@ export default function ExtrasModal({ extrasType, onConfirm, onClose, isProcessi
                     ? "text-sky-700"
                     : "text-teal-700"
             }`}>
-              {extraRuns}
+              {totalRuns}
             </p>
           </div>
 

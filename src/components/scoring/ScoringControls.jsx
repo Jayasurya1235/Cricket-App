@@ -1,8 +1,4 @@
-import {
-  Undo2,
-  Flag,
-  BookOpen,
-} from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 const PRIMARY_BUTTONS = [
   { runs: 0, label: "0", color: "bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200 active:bg-gray-300" },
@@ -24,38 +20,15 @@ export default function ScoringControls({
   onRecordRuns,
   onOpenExtras,
   onOpenWicket,
-  onUndo,
-  onEndOver,
   onOpenScorecard,
-  canUndo,
   isProcessing,
 }) {
   return (
     <div className="bg-white border border-cricket-border rounded-2xl overflow-hidden shadow-sm">
-      <div className="px-4 py-3 border-b border-cricket-border/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-cricket-border/50">
         <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
           Score
         </h3>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onUndo}
-            disabled={!canUndo || isProcessing}
-            className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-amber-600 transition px-2 py-1 rounded-lg hover:bg-amber-50 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Undo last action"
-          >
-            <Undo2 className="w-3 h-3" />
-            Undo
-          </button>
-          <button
-            onClick={onEndOver}
-            disabled={isProcessing}
-            className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-emerald-600 transition px-2 py-1 rounded-lg hover:bg-emerald-50 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="End current over"
-          >
-            <Flag className="w-3 h-3" />
-            End Over
-          </button>
-        </div>
       </div>
 
       <div className="p-4 space-y-3">

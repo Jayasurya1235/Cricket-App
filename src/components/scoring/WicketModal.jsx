@@ -8,27 +8,35 @@ const WICKET_TYPES = [
   { value: "run_out", label: "Run Out", icon: "🏃" },
   { value: "stumped", label: "Stumped", icon: "🧤" },
   { value: "hit_wicket", label: "Hit Wicket", icon: "💥" },
-  { value: "hit_below_waist", label: "Hit Below Waist", icon: "⚡" },
-  { value: "obstructing", label: "Obstructing", icon: "🚧" },
 ];
 
-export default function WicketModal({ state, onConfirm, onClose, isProcessing }) {
-  const [wicketType, setWicketType] = useState("");
-  const [newBatsmanName, setNewBatsmanName] = useState("");
+function nameOf(map, id) {
+  const p = map?.[id];
+  if (!p) return `Player #${id}`;
+  return `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Player #${id}`;
+}
 
-  const striker = state?.batsmen?.find((b) => b.is_on_strike);
+export default function WicketModal({ scorecard, nameMap, onConfirm, onClose, isProcessing }) {
+  const [wicketType, setWicketType] = useState("");
+  const [dismissedId, setDismissedId] = useState(
+    scorecard?.striker_id ?? "",
+  );
+
+  if (!scorecard) return null;
+
+  const striker = scorecard.batsmen?.find(
+    (b) => b.player_id === scorecard.striker_id,
+  );
+  const nonStriker = scorecard.batsmen?.find(
+    (b) => b.player_id === scorecard.non_striker_id,
+  );
 
   function handleSubmit() {
-    if (!wicketType) return;
-
-    const data = {
+    if (!wicketType || !dismissedId) return;
+    onConfirm({
       wicket_type: wicketType,
-      dismissed_batsman_id: striker?.player_id,
-      new_batsman_name: newBatsmanName.trim() || "New Batsman",
-      new_batsman_id: 900 + Math.floor(Math.random() * 100),
-    };
-
-    onConfirm(data);
+      dismissed_player_id: Number(dismissedId),
+    });
   }
 
   return (
@@ -46,7 +54,7 @@ export default function WicketModal({ state, onConfirm, onClose, isProcessing })
             <div>
               <h2 className="text-sm font-bold text-gray-900">Wicket</h2>
               <p className="text-[11px] text-gray-400">
-                {striker?.name || "Batsman"} is on strike
+                Who is out and how?
               </p>
             </div>
           </div>
@@ -59,6 +67,35 @@ export default function WicketModal({ state, onConfirm, onClose, isProcessing })
         </div>
 
         <div className="p-5 space-y-5">
+          <div>
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2.5">
+              Dismissed Player
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[striker, nonStriker].filter(Boolean).map((b) => (
+                <button
+                  key={b.player_id}
+                  onClick={() => setDismissedId(b.player_id)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all duration-150 ${
+                    dismissedId === b.player_id
+                      ? "border-red-500 bg-red-50 shadow-sm"
+                      : "border-gray-100 bg-gray-50 hover:border-gray-200"
+                  }`}
+                >
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">
+                    {b.player_id === scorecard.striker_id ? "On Strike" : "Non-Striker"}
+                  </p>
+                  <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">
+                    {nameOf(nameMap, b.player_id)}
+                  </p>
+                  <p className="text-[11px] text-gray-500 tabular-nums">
+                    {b.runs} ({b.balls_faced})
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2.5">
               How was the batsman dismissed?
@@ -87,22 +124,9 @@ export default function WicketModal({ state, onConfirm, onClose, isProcessing })
             </div>
           </div>
 
-          <div>
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-              New Batsman Name
-            </label>
-            <input
-              type="text"
-              value={newBatsmanName}
-              onChange={(e) => setNewBatsmanName(e.target.value)}
-              placeholder="Enter new batsman name"
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-sm text-gray-700 placeholder:text-gray-400 outline-none transition"
-            />
-          </div>
-
           <button
             onClick={handleSubmit}
-            disabled={!wicketType || isProcessing}
+            disabled={!wicketType || !dismissedId || isProcessing}
             className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isProcessing ? (

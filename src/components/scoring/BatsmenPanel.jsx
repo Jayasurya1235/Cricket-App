@@ -1,11 +1,14 @@
-import { ArrowLeftRight } from "lucide-react";
+export default function BatsmenPanel({ scorecard, nameMap }) {
+  if (!scorecard?.batsmen?.length) return null;
 
-export default function BatsmenPanel({ state, onSwapStriker }) {
-  if (!state?.batsmen) return null;
+  const striker = scorecard.batsmen.find(
+    (b) => b.player_id === scorecard.striker_id,
+  );
+  const nonStriker = scorecard.batsmen.find(
+    (b) => b.player_id === scorecard.non_striker_id,
+  );
 
-  const striker = state.batsmen.find((b) => b.is_on_strike);
-  const nonStriker = state.batsmen.find((b) => !b.is_on_strike);
-  const hasBatsmen = state.batsmen.length > 0;
+  const active = [striker, nonStriker].filter(Boolean);
 
   return (
     <div className="bg-white border border-cricket-border rounded-2xl overflow-hidden shadow-sm">
@@ -13,27 +16,26 @@ export default function BatsmenPanel({ state, onSwapStriker }) {
         <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
           Batting
         </h3>
-        {hasBatsmen && (
-          <button
-            onClick={onSwapStriker}
-            className="flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-emerald-600 transition px-2 py-1 rounded-lg hover:bg-emerald-50"
-            title="Swap striker"
-          >
-            <ArrowLeftRight className="w-3 h-3" />
-            Swap
-          </button>
-        )}
+        <span className="text-[10px] font-semibold text-gray-400">
+          {scorecard.legal_balls} balls
+        </span>
       </div>
 
-      {hasBatsmen ? (
+      {active.length > 0 ? (
         <div className="divide-y divide-cricket-border/40">
-          {striker && <BatsmanRow batsman={striker} isStriker />}
-          {nonStriker && <BatsmanRow batsman={nonStriker} />}
+          {active.map((b) => (
+            <BatsmanRow
+              key={b.player_id}
+              batsman={b}
+              name={nameOf(nameMap, b.player_id)}
+              isStriker={b.player_id === scorecard.striker_id}
+            />
+          ))}
         </div>
       ) : (
         <div className="px-4 py-6 text-center">
           <p className="text-xs text-gray-400 font-medium">
-            Select striker and non-striker to begin
+            No batsmen at the crease yet
           </p>
         </div>
       )}
@@ -41,7 +43,13 @@ export default function BatsmenPanel({ state, onSwapStriker }) {
   );
 }
 
-function BatsmanRow({ batsman, isStriker }) {
+function nameOf(map, id) {
+  const p = map?.[id];
+  if (!p) return `Player #${id}`;
+  return `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Player #${id}`;
+}
+
+function BatsmanRow({ batsman, name, isStriker }) {
   return (
     <div
       className={`px-4 py-3 flex items-center gap-3 transition-colors ${
@@ -50,22 +58,15 @@ function BatsmanRow({ batsman, isStriker }) {
     >
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-          isStriker
-            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
-            : "bg-gray-100 text-gray-500"
+          isStriker ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-500"
         }`}
       >
-        {isStriker && (
-          <span className="absolute w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-        )}
-        {batsman.name?.charAt(0) || "B"}
+        {name?.charAt(0) || "B"}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-bold text-gray-900 truncate">
-            {batsman.name}
-          </p>
+          <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
           {isStriker && (
             <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded uppercase tracking-wider">
               On Strike
@@ -73,12 +74,17 @@ function BatsmanRow({ batsman, isStriker }) {
           )}
         </div>
         <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-          {batsman.balls} balls
+          {batsman.balls_faced} balls
           {batsman.fours > 0 && (
             <span className="ml-1.5 text-blue-500">{batsman.fours}×4</span>
           )}
           {batsman.sixes > 0 && (
             <span className="ml-1.5 text-purple-500">{batsman.sixes}×6</span>
+          )}
+          {batsman.out && (
+            <span className="ml-1.5 text-red-500 capitalize">
+              {batsman.dismissal || "out"}
+            </span>
           )}
         </p>
       </div>

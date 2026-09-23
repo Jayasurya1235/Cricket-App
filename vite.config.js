@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://cricketapp.in",
+        target: "http://192.168.1.36:8000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, "/v1"),
       },

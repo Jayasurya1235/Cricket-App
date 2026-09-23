@@ -111,7 +111,8 @@ function TeamCard({ team }) {
             <div className="flex items-center gap-3 text-gray-300">
               <Users className="w-5 h-5 text-gray-400 shrink-0" />
               <span className="text-sm font-medium">
-                {team.total ??
+                {team.total_players ??
+                  team.total ??
                   team.players?.length ??
                   (team.playing_11?.length ?? 0) +
                     (team.substitutes?.length ?? 0) +

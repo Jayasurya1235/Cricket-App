@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 
-// Verified against GET https://cricketapp.in/openapi.json (match group):
+// Verified against GET http://192.168.1.36:8000/openapi.json (match group):
 //   POST   /v1/matches                -> 201 MatchResponse   (MatchCreate body)
 //   GET    /v1/matches?skip&limit     -> MatchResponse[]
 //   GET    /v1/matches/{match_id}     -> MatchResponse
