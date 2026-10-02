@@ -1,10 +1,21 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, CalendarPlus, ShieldAlert } from "lucide-react";
 import { useTeams } from "../hooks/useTeams";
 import { useCreateMatch } from "../hooks/useCreateMatch";
 import { emptyMatchForm } from "../api/matchSchema";
 import { extractErrorMessage } from "../api/client";
-import { ArrowLeft, Calendar, Sparkles, ShieldAlert } from "lucide-react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  LoadingState,
+  PageHeader,
+  SectionHeading,
+  Select,
+} from "../components/ui";
 
 const MATCH_TYPES = [
   { value: "Test", label: "Test" },
@@ -42,8 +53,8 @@ function AddMatchPage() {
     });
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setFormError("");
 
     if (!form.team_a_id || !form.team_b_id) {
@@ -86,304 +97,241 @@ function AddMatchPage() {
   }
 
   if (teamsLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">
-          Initializing matchup configs...
-        </p>
-      </div>
-    );
+    return <LoadingState label="Initializing matchup configs…" />;
   }
 
   if (!teams || teams.length < 2) {
     return (
-      <div className="bg-white border border-cricket-border rounded-2xl p-8 text-center max-w-lg mx-auto space-y-4 shadow-sm">
-        <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto" />
-        <h3 className="text-lg font-bold text-gray-900">Insufficient Teams</h3>
-        <p className="text-gray-500 text-sm">
-          You need at least 2 teams created before you can schedule a match.
-        </p>
-        <Link
-          to="/teams/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition"
-        >
-          Register First Team
-        </Link>
-      </div>
+      <EmptyState
+        icon={<ShieldAlert className="size-6 text-warning" aria-hidden="true" />}
+        title="Insufficient Teams"
+        description="You need at least 2 teams created before you can schedule a match."
+        action={
+          <Button as={Link} to="/teams/new">
+            <CalendarPlus className="size-4" aria-hidden="true" />
+            Register First Team
+          </Button>
+        }
+      />
     );
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Link
-        to="/matches"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-emerald-600 transition"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Matches
-      </Link>
+    <div className="mx-auto max-w-2xl">
+      <PageHeader
+        breadcrumbs={[{ label: "Matches", to: "/matches" }, { label: "New" }]}
+        title="Schedule New Match"
+        description="Configure venues, competing teams, toss outcome and match officials."
+      />
 
-      <div className="bg-white border border-cricket-border rounded-2xl p-6 md:p-8 space-y-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
-              Schedule New Match
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            </h1>
-            <p className="text-xs text-gray-500">
-              Configure venues, competing teams, toss outcome and match
-              officials.
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Match Type */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Match Category / Format
-            </label>
-            <select
-              required
+      <Card className="p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Field label="Match Category / Format" required>
+            <Select
+              name="match_type"
               value={form.match_type}
-              onChange={(e) => handleChange("match_type", e.target.value)}
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+              onChange={(event) => handleChange("match_type", event.target.value)}
             >
-              <option value="" className="bg-cricket-card">
-                Select match type
-              </option>
-              {MATCH_TYPES.map((mt) => (
-                <option key={mt.value} value={mt.value} className="bg-cricket-card">
-                  {mt.label}
+              <option value="">Select match type</option>
+              {MATCH_TYPES.map((matchType) => (
+                <option key={matchType.value} value={matchType.value}>
+                  {matchType.label}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          {/* Venue */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Arena / Venue
-            </label>
-            <input
-              type="text"
-              required
-              value={form.venue}
-              onChange={(e) => handleChange("venue", e.target.value)}
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+          <Field label="Arena / Venue" required>
+            <Input
+              name="venue"
+              autoComplete="off"
               placeholder="e.g. M. A. Chidambaram Stadium, Chennai"
+              value={form.venue}
+              onChange={(event) => handleChange("venue", event.target.value)}
             />
-          </div>
+          </Field>
 
-          {/* Date & Time */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Match Date
-              </label>
-              <input
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Match Date" required>
+              <Input
+                name="match_date"
                 type="date"
-                required
                 value={form.match_date}
-                onChange={(e) => handleChange("match_date", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                onChange={(event) =>
+                  handleChange("match_date", event.target.value)
+                }
               />
-            </div>
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Start Time
-              </label>
-              <input
+            </Field>
+
+            <Field label="Start Time" required>
+              <Input
+                name="match_time"
                 type="time"
-                required
                 value={form.match_time}
-                onChange={(e) => handleChange("match_time", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                onChange={(event) =>
+                  handleChange("match_time", event.target.value)
+                }
               />
-            </div>
+            </Field>
           </div>
 
-          {/* Team Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Home Squad (Team A)
-              </label>
-              <select
-                required
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Home Squad (Team A)" required>
+              <Select
+                name="team_a_id"
                 value={form.team_a_id}
-                onChange={(e) => handleChange("team_a_id", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                onChange={(event) =>
+                  handleChange("team_a_id", event.target.value)
+                }
               >
-                <option value="" className="bg-cricket-card">
-                  Select Home Team
-                </option>
+                <option value="">Select Home Team</option>
                 {teams
                   .filter((t) => !form.team_b_id || t.id !== Number(form.team_b_id))
-                  .map((t) => (
-                    <option key={t.id} value={t.id} className="bg-cricket-card">
-                      {t.name}
+                  .map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
                     </option>
                   ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Away Squad (Team B)
-              </label>
-              <select
-                required
+              </Select>
+            </Field>
+
+            <Field label="Away Squad (Team B)" required>
+              <Select
+                name="team_b_id"
                 value={form.team_b_id}
-                onChange={(e) => handleChange("team_b_id", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                onChange={(event) =>
+                  handleChange("team_b_id", event.target.value)
+                }
               >
-                <option value="" className="bg-cricket-card">
-                  Select Away Team
-                </option>
+                <option value="">Select Away Team</option>
                 {teams
                   .filter((t) => !form.team_a_id || t.id !== Number(form.team_a_id))
-                  .map((t) => (
-                    <option key={t.id} value={t.id} className="bg-cricket-card">
-                      {t.name}
+                  .map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
                     </option>
                   ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          {/* Toss Details */}
-          <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-4">
-            <h3 className="text-xs uppercase font-extrabold text-gray-600 tracking-wider">
-              Toss Outcome
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                  Toss Won By
-                </label>
-                <select
-                  required
+          {/* Toss outcome */}
+          <div className="rounded-card border border-line bg-surface-sunken p-4">
+            <SectionHeading title="Toss Outcome" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Toss Won By" required>
+                <Select
+                  name="toss_winner_id"
                   value={form.toss_winner_id}
-                  onChange={(e) =>
-                    handleChange("toss_winner_id", e.target.value)
+                  onChange={(event) =>
+                    handleChange("toss_winner_id", event.target.value)
                   }
-                  className="w-full bg-cricket-card border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
                   <option value="">Select toss winner</option>
                   {teamA && <option value={teamA.id}>{teamA.name}</option>}
                   {teamB && <option value={teamB.id}>{teamB.name}</option>}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                  Toss Decision
-                </label>
-                <select
-                  required
+                </Select>
+              </Field>
+
+              <Field label="Toss Decision" required>
+                <Select
+                  name="toss_decision"
                   value={form.toss_decision}
-                  onChange={(e) =>
-                    handleChange("toss_decision", e.target.value)
+                  onChange={(event) =>
+                    handleChange("toss_decision", event.target.value)
                   }
-                  className="w-full bg-cricket-card border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
                 >
                   <option value="">--</option>
-                  {TOSS_DECISIONS.map((td) => (
-                    <option key={td.value} value={td.value} className="bg-cricket-card">
-                      {td.label}
+                  {TOSS_DECISIONS.map((decision) => (
+                    <option key={decision.value} value={decision.value}>
+                      {decision.label}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
             </div>
           </div>
 
-          {/* Match Officials */}
-          <div className="bg-emerald-50/40 border border-cricket-border rounded-xl p-4 space-y-4">
-            <h3 className="text-xs uppercase font-extrabold text-gray-600 tracking-wider">
-              Match Officials
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                  Umpire 1
-                </label>
-                <input
-                  type="text"
-                  value={form.referee_1_name}
-                  onChange={(e) =>
-                    handleChange("referee_1_name", e.target.value)
-                  }
-                  className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+          {/* Match officials */}
+          <div className="rounded-card border border-line bg-surface-sunken p-4">
+            <SectionHeading title="Match Officials" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Umpire 1">
+                <Input
+                  name="referee_1_name"
+                  autoComplete="off"
                   placeholder="e.g. Kumar Dharmasena"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                  Umpire 2
-                </label>
-                <input
-                  type="text"
-                  value={form.referee_2_name}
-                  onChange={(e) =>
-                    handleChange("referee_2_name", e.target.value)
+                  value={form.referee_1_name}
+                  onChange={(event) =>
+                    handleChange("referee_1_name", event.target.value)
                   }
-                  className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
-                  placeholder="e.g. Richard Illingworth"
                 />
-              </div>
+              </Field>
+
+              <Field label="Umpire 2">
+                <Input
+                  name="referee_2_name"
+                  autoComplete="off"
+                  placeholder="e.g. Richard Illingworth"
+                  value={form.referee_2_name}
+                  onChange={(event) =>
+                    handleChange("referee_2_name", event.target.value)
+                  }
+                />
+              </Field>
             </div>
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Match Referee
-              </label>
-              <input
-                type="text"
-                value={form.match_referee_name}
-                onChange={(e) =>
-                  handleChange("match_referee_name", e.target.value)
-                }
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
-                placeholder="e.g. Javagal Srinath"
-              />
+
+            <div className="mt-4">
+              <Field label="Match Referee">
+                <Input
+                  name="match_referee_name"
+                  autoComplete="off"
+                  placeholder="e.g. Javagal Srinath"
+                  value={form.match_referee_name}
+                  onChange={(event) =>
+                    handleChange("match_referee_name", event.target.value)
+                  }
+                />
+              </Field>
             </div>
           </div>
 
-          {/* Result */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Match Result{" "}
-              <span className="normal-case font-normal">
-                (optional — usually set once the match is played)
-              </span>
-            </label>
-            <input
-              type="text"
-              value={form.result}
-              onChange={(e) => handleChange("result", e.target.value)}
+          <Field
+            label="Match Result"
+            hint="Optional — usually set once the match is played."
+          >
+            <Input
+              name="result"
+              autoComplete="off"
               placeholder="e.g. India won by 6 wickets"
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+              value={form.result}
+              onChange={(event) => handleChange("result", event.target.value)}
             />
-          </div>
+          </Field>
 
-          {formError && <p className="text-red-500 text-xs">{formError}</p>}
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={createMatch.isPending}
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+          {formError && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-card border border-danger-line bg-danger-bg px-4 py-3 text-sm text-danger"
             >
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {formError}
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <Button as={Link} to="/matches" variant="ghost">
+              Back to Matches
+            </Button>
+            <Button type="submit" loading={createMatch.isPending}>
+              <CalendarPlus className="size-4" aria-hidden="true" />
               {createMatch.isPending
-                ? "Creating match fixture..."
+                ? "Creating match fixture…"
                 : "Schedule Match"}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

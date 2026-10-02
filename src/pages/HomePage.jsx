@@ -1,303 +1,323 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarPlus,
+  MapPin,
+  Shield,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useTeams } from "../hooks/useTeams";
 import { usePlayers } from "../hooks/usePlayers";
 import { useMatches } from "../hooks/useMatches";
 import { getMatchStatus } from "../api/matchSchema";
+import { extractErrorMessage } from "../api/client";
 import {
-  Users,
-  Calendar,
-  Shield,
-  ArrowRight,
-  Plus,
-  MapPin,
-  Clock,
-  Sparkles,
-} from "lucide-react";
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SectionHeading,
+  Skeleton,
+} from "../components/ui";
+
+const STATUS_TONES = {
+  Upcoming: "info",
+  Scheduled: "info",
+  Live: "live",
+  Completed: "neutral",
+  Abandoned: "danger",
+};
+
+const QUICK_ACTIONS = [
+  {
+    to: "/teams/new",
+    icon: Shield,
+    title: "Register a team",
+    description: "Add a club, homeground, and logo.",
+  },
+  {
+    to: "/players/new",
+    icon: UserPlus,
+    title: "Onboard a player",
+    description: "Set batting and bowling profiles.",
+  },
+  {
+    to: "/matches/new",
+    icon: CalendarPlus,
+    title: "Schedule a match",
+    description: "Pick teams, venue, and match type.",
+  },
+];
+
+function StatCard({ label, value, loading, error, icon: Icon, to }) {
+  const body = (
+    <>
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium text-ink-subtle">{label}</p>
+        {loading ? (
+          <Skeleton className="mt-2 h-8 w-12" />
+        ) : error ? (
+          // A failed request is not a zero. Say so instead of showing a count.
+          <p className="mt-1 text-sm font-semibold text-danger">Unavailable</p>
+        ) : (
+          <p className="mt-1 text-3xl font-bold leading-none tracking-tight text-ink tabular-nums">
+            {value}
+          </p>
+        )}
+      </div>
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+    </>
+  );
+
+  const classes =
+    "flex items-center justify-between gap-4 rounded-card border border-line bg-surface p-5 shadow-card transition-[box-shadow,border-color] duration-200";
+
+  return to ? (
+    <Link
+      to={to}
+      className={`${classes} hover:border-brand-200 hover:shadow-raised`}
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className={classes}>{body}</div>
+  );
+}
+
+function RecentMatchesTable({ matches, loading }) {
+  return (
+    <Card className="overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <caption className="sr-only">Recent matches</caption>
+        <thead>
+          <tr className="border-b border-line bg-canvas/60">
+            <th scope="col" className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+              Match
+            </th>
+            <th
+              scope="col"
+              className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle sm:table-cell"
+            >
+              Date &amp; time
+            </th>
+            <th
+              scope="col"
+              className="hidden px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-subtle lg:table-cell"
+            >
+              Venue
+            </th>
+            <th scope="col" className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {loading
+            ? [0, 1, 2].map((key) => (
+                <tr key={key}>
+                  <td colSpan={4} className="px-5 py-4">
+                    <Skeleton className="h-4 w-2/3" />
+                  </td>
+                </tr>
+              ))
+            : matches.map((match) => {
+                const status = getMatchStatus(match);
+                return (
+                  <tr key={match.id} className="transition-colors hover:bg-canvas/60">
+                    <td className="px-5 py-4">
+                      <Link
+                        to={`/matches/${match.id}`}
+                        className="rounded font-semibold text-ink transition hover:text-brand-800"
+                      >
+                        {match.match_type} #{match.id}
+                      </Link>
+                    </td>
+                    <td className="hidden whitespace-nowrap px-5 py-4 text-ink-subtle sm:table-cell">
+                      {[match.match_date, match.match_time]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </td>
+                    <td className="hidden px-5 py-4 text-ink-subtle lg:table-cell">
+                      <span className="flex items-center gap-1.5">
+                        <MapPin
+                          className="size-3.5 shrink-0 text-ink-faint"
+                          aria-hidden="true"
+                        />
+                        <span className="truncate">{match.venue || "—"}</span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <Badge
+                        tone={STATUS_TONES[status] ?? "neutral"}
+                        size="sm"
+                        dot
+                        pulse={status === "Live"}
+                      >
+                        {status}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
 
 function HomePage() {
-  const { data: teams, isLoading: loadingTeams } = useTeams();
-  const { data: players, isLoading: loadingPlayers } = usePlayers();
-  const { data: matches, isLoading: loadingMatches } = useMatches();
+  const {
+    data: teams,
+    isLoading: loadingTeams,
+    isError: teamsError,
+  } = useTeams();
+  const {
+    data: players,
+    isLoading: loadingPlayers,
+    isError: playersError,
+  } = usePlayers();
+  const {
+    data: matches,
+    isLoading: loadingMatches,
+    isError: matchesError,
+    error: matchesErrorDetail,
+    refetch: refetchMatches,
+  } = useMatches();
 
   const totalTeams = teams?.length ?? 0;
   const totalPlayers = players?.length ?? 0;
   const totalMatches = matches?.length ?? 0;
 
-  // Get upcoming or live matches
-  const recentMatches = matches?.slice(0, 3) ?? [];
+  // Surface what needs attention first: live, then soonest upcoming, then the
+  // most recent results. The date is the tiebreaker so fixtures inside a bucket
+  // are actually ordered rather than left in API order.
+  const recentMatches = useMemo(() => {
+    const list = [...(matches ?? [])];
+    const rank = (match) => {
+      const status = getMatchStatus(match);
+      if (status === "Live") return 0;
+      if (status === "Completed") return 2;
+      return 1;
+    };
+    const time = (match) => {
+      const parsed = Date.parse(match?.match_date);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+    return list
+      .sort((a, b) => rank(a) - rank(b) || time(a) - time(b))
+      .slice(0, 4);
+  }, [matches]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-emerald-700 via-emerald-600 to-emerald-800 border border-emerald-500/40 p-6 md:p-8 shadow-lg">
-        <div className="relative z-10 max-w-2xl space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-emerald-50 text-xs font-semibold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            Cricket Management Platform
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
-            Manage Your Cricket Teams & Matches <br />
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-amber-200 to-amber-300">
-              With Elite Precision
-            </span>
-          </h1>
-          <p className="text-emerald-50/90 text-sm md:text-base leading-relaxed">
-            Welcome to the cricket Pro Administration hub. Register teams,
-            assign squads, schedule matches, and monitor live score sheets with
-            our advanced dashboard suite.
-          </p>
-        </div>
-        {/* Background decorative glows */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-400/30 rounded-full blur-3xl z-0"></div>
-        <div className="absolute bottom-0 left-1/3 w-60 h-60 bg-amber-300/20 rounded-full blur-3xl z-0"></div>
+    <>
+      <PageHeader
+        title="Dashboard"
+        description="Register clubs, onboard players, schedule fixtures, and run live scoring."
+      />
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <StatCard
+          label="Teams"
+          value={totalTeams}
+          loading={loadingTeams}
+          error={teamsError}
+          icon={Shield}
+          to="/teams"
+        />
+        <StatCard
+          label="Players"
+          value={totalPlayers}
+          loading={loadingPlayers}
+          error={playersError}
+          icon={Users}
+          to="/players"
+        />
+        <StatCard
+          label="Matches"
+          value={totalMatches}
+          loading={loadingMatches}
+          error={matchesError}
+          icon={CalendarDays}
+          to="/matches"
+        />
       </div>
 
-      {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        {/* Teams Stat */}
-        <div className="bg-white border border-cricket-border rounded-xl p-5 flex items-center justify-between hover:border-emerald-300 shadow-sm transition-all duration-300">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Total Teams
-            </p>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {loadingTeams ? (
-                <span className="text-gray-400">--</span>
-              ) : (
-                totalTeams
-              )}
-            </h3>
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{" "}
-              Active Squads
-            </p>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-emerald-600">
-            <Shield className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Players Stat */}
-        <div className="bg-white border border-cricket-border rounded-xl p-5 flex items-center justify-between hover:border-emerald-300 shadow-sm transition-all duration-300">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Registered Athletes
-            </p>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {loadingPlayers ? (
-                <span className="text-gray-400">--</span>
-              ) : (
-                totalPlayers
-              )}
-            </h3>
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{" "}
-              Pro Roster
-            </p>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-emerald-600">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Matches Stat */}
-        <div className="bg-white border border-cricket-border rounded-xl p-5 flex items-center justify-between hover:border-emerald-300 shadow-sm transition-all duration-300">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Scheduled Matches
-            </p>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {loadingMatches ? (
-                <span className="text-gray-400">--</span>
-              ) : (
-                totalMatches
-              )}
-            </h3>
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{" "}
-              Fixtures List
-            </p>
-          </div>
-          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-emerald-600">
-            <Calendar className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Match Events + Action Center */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Match Events Schedule */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-emerald-600" />
-              Event Match Schedule
-            </h2>
-            <Link
-              to="/matches"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 hover:underline"
-            >
-              View All Matches <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="bg-white border border-cricket-border rounded-xl overflow-hidden shadow-sm">
-            {loadingMatches ? (
-              <p className="p-6 text-sm text-gray-500 text-center">
-                Loading matches...
-              </p>
-            ) : recentMatches.length === 0 ? (
-              <div className="p-8 text-center space-y-3">
-                <p className="text-sm text-gray-500">
-                  No upcoming matches scheduled.
-                </p>
-                <Link
-                  to="/matches/new"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition"
-                >
-                  <Plus className="w-4 h-4" /> Schedule First Match
-                </Link>
-              </div>
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="lg:col-span-2">
+          <SectionHeading
+            title="Recent matches"
+            action={
+              <Link
+                to="/matches"
+                className="inline-flex items-center gap-1 rounded text-[13px] font-semibold text-brand-700 transition hover:text-brand-800"
+              >
+                View all
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            }
+          />
+          {recentMatches.length === 0 && !loadingMatches ? (
+            matchesError ? (
+              // Distinguish "the request failed" from "there are no matches" —
+              // otherwise an API outage is reported as an empty league.
+              <ErrorState
+                title="Couldn't load matches"
+                message={extractErrorMessage(matchesErrorDetail)}
+                onRetry={() => refetchMatches()}
+              />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-cricket-border bg-emerald-50/60 text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                      <th className="px-6 py-4">Match Event</th>
-                      <th className="px-6 py-4">Date & Time</th>
-                      <th className="px-6 py-4">Arena</th>
-                      <th className="px-6 py-4 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cricket-border/60">
-                    {recentMatches.map((match) => {
-                      const status = getMatchStatus(match);
-                      const isLive = status === "Live";
-                      const isCompleted = status === "Completed";
-                      return (
-                        <tr
-                          key={match.id}
-                          className="hover:bg-emerald-50/40 transition-colors"
-                        >
-                          <td className="px-6 py-4">
-                            <Link
-                              to={`/matches/${match.id}`}
-                              className="font-bold text-gray-900 hover:text-emerald-600 transition"
-                            >
-                              Match #{match.id} ({match.match_type})
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 text-gray-600">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-gray-400" />
-                              <span>
-                                {match.match_date} • {match.match_time}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-gray-500">
-                            <div className="flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                              <span>{match.venue}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                                isLive
-                                  ? "bg-red-50 border-red-200 text-red-600 animate-pulse"
-                                  : isCompleted
-                                    ? "bg-gray-100 border-cricket-border text-gray-500"
-                                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              }`}
-                            >
-                              {isLive && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                              )}
-                              {status}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              <EmptyState
+                title="No matches yet"
+                description="Schedule your first fixture to see it listed here."
+                action={
+                  <Button as={Link} to="/matches/new">
+                    <CalendarPlus className="size-4" aria-hidden="true" />
+                    Schedule a match
+                  </Button>
+                }
+              />
+            )
+          ) : (
+            <RecentMatchesTable
+              matches={recentMatches}
+              loading={loadingMatches}
+            />
+          )}
+        </section>
+
+        <section>
+          <SectionHeading title="Quick actions" />
+          <div className="space-y-3">
+            {QUICK_ACTIONS.map(({ to, icon: Icon, title, description }) => (
+              <Link
+                key={to}
+                to={to}
+                className="group flex items-center gap-3.5 rounded-card border border-line bg-surface p-4 shadow-card transition-[box-shadow,border-color] duration-200 hover:border-brand-200 hover:shadow-raised"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-600 group-hover:text-white">
+                  <Icon className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">
+                    {title}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] leading-snug text-ink-subtle">
+                    {description}
+                  </span>
+                </span>
+              </Link>
+            ))}
           </div>
-        </div>
-
-        {/* Right 1 Column: Quick Action Hub */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-600" />
-            Quick Administration
-          </h2>
-
-          <div className="space-y-3.5">
-            {/* Add Team */}
-            <Link
-              to="/teams/new"
-              className="group block p-4 bg-white border border-cricket-border rounded-xl hover:border-emerald-300 hover:shadow-md shadow-sm transition-all duration-300"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
-                  <Shield className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition">
-                    Register New Team
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Enter homeground, logo details, and squad levels.
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Register Player */}
-            <Link
-              to="/players/new"
-              className="group block p-4 bg-white border border-cricket-border rounded-xl hover:border-emerald-300 hover:shadow-md shadow-sm transition-all duration-300"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition">
-                    Onboard Athlete
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Set up batting, bowling profiles and verify credentials.
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Schedule Match */}
-            <Link
-              to="/matches/new"
-              className="group block p-4 bg-white border border-cricket-border rounded-xl hover:border-emerald-300 hover:shadow-md shadow-sm transition-all duration-300"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition">
-                    Schedule Match
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Configure dates, venues, referees, and pick rosters.
-                  </p>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </>
   );
 }
 

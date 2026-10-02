@@ -40,11 +40,10 @@ export const teamsApi = {
     return res.data;
   },
 
-  // GET /teams/{id}/players
-  listPlayers: async (teamId) => {
-    const res = await apiClient.get(`/teams/${teamId}/players`);
-    return res.data;
-  },
+  // NOTE: there is no GET /teams/{id}/players in the API — that path only
+  // accepts POST. To read a team's players use one of:
+  //   GET /teams/{id}/squad              -> the full squad
+  //   GET /teams/{id}/available-players  -> searchable, paginated
 
   // POST /teams/{id}/players
   addPlayer: async (teamId, data) => {

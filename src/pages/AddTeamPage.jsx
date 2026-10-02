@@ -1,13 +1,23 @@
-import { useRef, useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { AlertCircle, CheckCircle2, ImageUp, Shield, X } from "lucide-react";
 import { useLocations } from "../hooks/useLocations";
 import { useLevels } from "../hooks/useLevels";
 import { useTeam } from "../hooks/useTeam";
 import { useCreateTeam } from "../hooks/useCreateTeam";
 import { useUpdateTeam } from "../hooks/useUpdateTeam";
-import { teamsApi } from "../api/teams";
+import { useUploadTeamLogo } from "../hooks/useUploadTeamLogo";
 import { extractErrorMessage } from "../api/client";
-import { ArrowLeft, Shield, Sparkles, Camera, X } from "lucide-react";
+import {
+  Button,
+  Card,
+  ErrorState,
+  Field,
+  Input,
+  LoadingState,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const EMPTY_FORM = {
   name: "",
@@ -21,6 +31,8 @@ const EMPTY_FORM = {
   city_id: "",
   level_id: "",
 };
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
 function buildInitial(team) {
   if (!team) return EMPTY_FORM;
@@ -44,60 +56,75 @@ function TeamForm({ team, isEdit, teamId }) {
   const { data: levels } = useLevels();
   const createTeam = useCreateTeam();
   const updateTeam = useUpdateTeam();
+  const uploadLogo = useUploadTeamLogo();
 
   const [form, setForm] = useState(() => buildInitial(team));
-
   const [formError, setFormError] = useState("");
   const logoInputRef = useRef(null);
   const [logoFile, setLogoFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(team?.logo || team?.logo_url || "");
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(team?.logo || "");
+
+  const blobRef = useRef(null);
 
   useEffect(() => {
     return () => {
-      if (logoPreview && logoPreview.startsWith("blob:")) {
-        URL.revokeObjectURL(logoPreview);
-      }
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
     };
-  }, [logoPreview]);
+  }, []);
 
   const selectedCountry = countries?.find(
-    (c) => c.id === Number(form.country_id),
+    (country) => country.id === Number(form.country_id),
   );
-
   const selectedState = selectedCountry?.states?.find(
-    (s) => s.id === Number(form.state_id),
+    (state) => state.id === Number(form.state_id),
   );
 
-  function handleLogoChange(file) {
+  const isPending =
+    createTeam.isPending || updateTeam.isPending || uploadLogo.isPending;
+  const noLevels = !levels || levels.length === 0;
+
+  function replacePreview(file) {
+    if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+    const next = URL.createObjectURL(file);
+    blobRef.current = next;
+    setLogoPreview(next);
+  }
+
+  function handleLogoChange(event) {
+    const file = event.target.files?.[0];
     if (!file) return;
+
     if (!file.type.startsWith("image/")) {
-      setFormError("Please choose an image file (JPG, PNG, WebP).");
+      setFormError("Please choose an image file (JPG, PNG, or WebP).");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_LOGO_BYTES) {
       setFormError("Image file is too large. Maximum size is 5 MB.");
       return;
     }
     setFormError("");
     setLogoFile(file);
-    if (logoPreview && logoPreview.startsWith("blob:")) {
-      URL.revokeObjectURL(logoPreview);
-    }
-    setLogoPreview(URL.createObjectURL(file));
+    setLogoRemoved(false);
+    replacePreview(file);
   }
 
   function handleRemoveLogo() {
-    if (logoPreview && logoPreview.startsWith("blob:")) {
-      URL.revokeObjectURL(logoPreview);
+    if (blobRef.current) {
+      URL.revokeObjectURL(blobRef.current);
+      blobRef.current = null;
     }
     setLogoFile(null);
+    // Only meaningful on edit: create has no stored logo to clear, and the
+    // submitted payload sends `logo: null` so the backend actually drops it.
+    setLogoRemoved(true);
     setLogoPreview("");
     if (logoInputRef.current) logoInputRef.current.value = "";
   }
 
   function handleChange(field, value) {
-    setForm((prev) => {
-      const updated = { ...prev, [field]: value };
+    setForm((previous) => {
+      const updated = { ...previous, [field]: value };
       if (field === "country_id") {
         updated.state_id = "";
         updated.city_id = "";
@@ -109,9 +136,30 @@ function TeamForm({ team, isEdit, teamId }) {
     });
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setFormError("");
+
+    // All of these are required by TeamCreate / TeamUpdate. Validate up front:
+    // Number("") is 0 rather than NaN, so a skipped select would otherwise be
+    // submitted as a plausible-looking id of 0.
+    const required = [
+      ["name", "Team name"],
+      ["short_name", "Short name"],
+      ["homeground", "Home ground"],
+      ["founder", "Founder"],
+      ["owner", "Owner"],
+      ["founded_year", "Founded year"],
+      ["country_id", "Country"],
+      ["state_id", "State"],
+      ["city_id", "City"],
+      ["level_id", "Level"],
+    ];
+    const missing = required.find(([field]) => !String(form[field]).trim());
+    if (missing) {
+      setFormError(`${missing[1]} is required.`);
+      return;
+    }
 
     try {
       const payload = {
@@ -122,18 +170,21 @@ function TeamForm({ team, isEdit, teamId }) {
         city_id: Number(form.city_id),
         level_id: Number(form.level_id),
       };
+
+      // TeamUpdate.logo is nullable, so clearing the logo has to be explicit —
+      // omitting the key leaves the stored logo untouched.
+      if (isEdit && logoRemoved) payload.logo = null;
+
       if (isEdit) {
         await updateTeam.mutateAsync({ id: teamId, data: payload });
-        if (logoFile) {
-          await teamsApi.uploadLogo(teamId, logoFile);
-        }
+        if (logoFile) await uploadLogo.mutateAsync({ id: teamId, file: logoFile });
         navigate(`/teams/${teamId}`);
       } else {
-        const newTeam = await createTeam.mutateAsync(payload);
+        const created = await createTeam.mutateAsync(payload);
         if (logoFile) {
-          await teamsApi.uploadLogo(newTeam.id, logoFile);
+          await uploadLogo.mutateAsync({ id: created.id, file: logoFile });
         }
-        navigate(`/teams/${newTeam.id}`);
+        navigate(`/teams/${created.id}`);
       }
     } catch (err) {
       setFormError(extractErrorMessage(err));
@@ -141,293 +192,239 @@ function TeamForm({ team, isEdit, teamId }) {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Link
-        to={isEdit ? `/teams/${teamId}` : "/teams"}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-emerald-600 transition"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {isEdit ? "Back to Team" : "Back to Teams"}
-      </Link>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        breadcrumbs={[
+          { label: "Teams", to: "/teams" },
+          ...(isEdit
+            ? [{ label: team?.name ?? "Team", to: `/teams/${teamId}` }]
+            : []),
+          { label: isEdit ? "Edit" : "New" },
+        ]}
+        title={isEdit ? "Edit team profile" : "Register a team"}
+        description={
+          isEdit
+            ? "Update team details, home ground, and assigned level."
+            : "Add a club, its home ground, and its league level."
+        }
+      />
 
-      <div className="bg-cricket-card border border-cricket-border rounded-2xl p-6 md:p-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
-              {isEdit ? "Edit Team Profile" : "Register Team Profile"}
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            </h1>
-            <p className="text-xs text-gray-500">
-              {isEdit
-                ? "Update team details, home grounds, and assigned levels."
-                : "Establish a new cricket team, designate home grounds, and assign levels."}
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Official Team Name
-              </label>
-              <input
-                type="text"
-                required
-                value={form.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+      <Card className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Official team name" required>
+              <Input
+                name="name"
+                autoComplete="organization"
                 placeholder="e.g. Royal Kings"
+                value={form.name}
+                onChange={(event) => handleChange("name", event.target.value)}
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Short Code (Abbreviation)
-              </label>
-              <input
-                type="text"
-                required
-                value={form.short_name}
-                onChange={(e) => handleChange("short_name", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+            <Field label="Short code" hint="2–4 letters, shown on scorecards." required>
+              <Input
+                name="short_name"
+                autoComplete="off"
+                maxLength={4}
                 placeholder="e.g. RKS"
+                value={form.short_name}
+                onChange={(event) =>
+                  handleChange("short_name", event.target.value.toUpperCase())
+                }
               />
-            </div>
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Home Stadium / Ground
-              </label>
-              <input
-                type="text"
-                required
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Home ground" required>
+              <Input
+                name="homeground"
+                autoComplete="off"
+                placeholder="e.g. Lord's Cricket Ground"
                 value={form.homeground}
-                onChange={(e) => handleChange("homeground", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
-                placeholder="e.g. Lords Cricket Ground"
+                onChange={(event) =>
+                  handleChange("homeground", event.target.value)
+                }
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Club Founder
-              </label>
-              <input
-                type="text"
-                required
-                value={form.founder}
-                onChange={(e) => handleChange("founder", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+            <Field label="Club founder" required>
+              <Input
+                name="founder"
+                autoComplete="off"
                 placeholder="e.g. James Arthur"
+                value={form.founder}
+                onChange={(event) => handleChange("founder", event.target.value)}
               />
-            </div>
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Founded Year
-              </label>
-              <input
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Founded year" required>
+              <Input
+                name="founded_year"
                 type="number"
-                required
+                inputMode="numeric"
+                min="1800"
+                max="2100"
+                placeholder="e.g. 2008"
                 value={form.founded_year}
-                onChange={(e) => handleChange("founded_year", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
-                placeholder="e.g. 2020"
+                onChange={(event) =>
+                  handleChange("founded_year", event.target.value)
+                }
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Club Owner
-              </label>
-              <input
-                type="text"
-                required
-                value={form.owner}
-                onChange={(e) => handleChange("owner", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+            <Field label="Club owner" required>
+              <Input
+                name="owner"
+                autoComplete="organization"
                 placeholder="e.g. Reliance Sports Group"
+                value={form.owner}
+                onChange={(event) => handleChange("owner", event.target.value)}
               />
-            </div>
+            </Field>
           </div>
 
-          {/* Level Dropdown */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Team Level / Division
-            </label>
-            <select
-              required
+          <Field
+            label="Team level"
+            required
+            error={noLevels ? "No levels are configured yet." : undefined}
+          >
+            <Select
+              name="level_id"
               value={form.level_id}
-              onChange={(e) => handleChange("level_id", e.target.value)}
-              className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+              onChange={(event) => handleChange("level_id", event.target.value)}
             >
-              <option value="" className="bg-cricket-card">
-                Select league level
-              </option>
-              {levels?.map((lvl) => (
-                <option key={lvl.id} value={lvl.id} className="bg-cricket-card">
-                  {lvl.name}
+              <option value="">Select league level</option>
+              {levels?.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.name}
                 </option>
               ))}
-            </select>
-            {(!levels || levels.length === 0) && (
-              <p className="text-[10px] text-amber-600 mt-1.5">
-                No team levels exist yet. Please configure team levels first.
-              </p>
-            )}
-          </div>
+            </Select>
+          </Field>
 
-          {/* Location Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                Country
-              </label>
-              <select
-                required
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Country" required>
+              <Select
+                name="country_id"
                 value={form.country_id}
-                onChange={(e) => handleChange("country_id", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none transition"
+                onChange={(event) =>
+                  handleChange("country_id", event.target.value)
+                }
               >
-                <option value="" className="bg-cricket-card">
-                  Select country
-                </option>
-                {countries?.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-cricket-card">
-                    {c.name}
+                <option value="">Select country</option>
+                {countries?.map((country) => (
+                  <option key={country.id} value={country.id}>
+                    {country.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                State / Province
-              </label>
-              <select
-                required
+            <Field label="State / province" required>
+              <Select
+                name="state_id"
                 disabled={!selectedCountry}
                 value={form.state_id}
-                onChange={(e) => handleChange("state_id", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 disabled:opacity-40 focus:outline-none transition"
+                onChange={(event) => handleChange("state_id", event.target.value)}
               >
-                <option value="" className="bg-cricket-card">
-                  Select state
-                </option>
-                {selectedCountry?.states?.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-cricket-card">
-                    {s.name}
+                <option value="">Select state</option>
+                {selectedCountry?.states?.map((state) => (
+                  <option key={state.id} value={state.id}>
+                    {state.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div>
-              <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-                City / Town
-              </label>
-              <select
-                required
+            <Field label="City / town" required>
+              <Select
+                name="city_id"
                 disabled={!selectedState}
                 value={form.city_id}
-                onChange={(e) => handleChange("city_id", e.target.value)}
-                className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 disabled:opacity-40 focus:outline-none transition"
+                onChange={(event) => handleChange("city_id", event.target.value)}
               >
-                <option value="" className="bg-cricket-card">
-                  Select city
-                </option>
+                <option value="">Select city</option>
                 {selectedState?.cities?.map((city) => (
-                  <option
-                    key={city.id}
-                    value={city.id}
-                    className="bg-cricket-card"
-                  >
+                  <option key={city.id} value={city.id}>
                     {city.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          {/* Team Logo Upload */}
-          <div>
-            <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
-              Team Image
-              <span className="normal-case font-normal"> (optional)</span>
-            </label>
+          <Field
+            label="Team logo"
+            hint="JPG, PNG, or WebP up to 5 MB."
+          >
             <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 rounded-xl bg-cricket-dark border border-cricket-border overflow-hidden flex items-center justify-center shrink-0">
+              <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-muted">
                 {logoPreview ? (
-                  <img
-                    src={logoPreview}
-                    alt="Team logo preview"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={logoPreview} alt="Team logo preview" className="size-full object-cover" />
                 ) : (
-                  <Shield className="w-7 h-7 text-gray-400" />
+                  <Shield className="size-7 text-ink-faint" aria-hidden="true" />
                 )}
                 {logoPreview && (
                   <button
                     type="button"
                     onClick={handleRemoveLogo}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow transition"
-                    title="Remove image"
+                    aria-label="Remove logo"
+                    className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-danger text-white transition hover:bg-danger/90"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="size-3" aria-hidden="true" />
                   </button>
                 )}
-              </div>
-              <div className="space-y-2">
+              </span>
+
+              <div className="min-w-0">
                 <input
                   ref={logoInputRef}
+                  id="team-logo"
+                  name="logo"
                   type="file"
                   accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleLogoChange(e.target.files?.[0])}
+                  className="sr-only"
+                  onChange={handleLogoChange}
                 />
-                <button
-                  type="button"
-                  onClick={() => logoInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition"
+                <Button
+                  as="label"
+                  htmlFor="team-logo"
+                  variant="secondary"
+                  size="sm"
+                  tabIndex={0}
                 >
-                  <Camera className="w-3.5 h-3.5" />
-                  {logoPreview ? "Change Image" : "Upload Image"}
-                </button>
-                <p className="text-[11px] text-gray-400">
-                  JPG, PNG or WebP up to 5 MB.
-                </p>
+                  <ImageUp className="size-4" aria-hidden="true" />
+                  {logoPreview ? "Change image" : "Upload image"}
+                </Button>
               </div>
             </div>
-          </div>
+          </Field>
 
-          {formError && <p className="text-red-500 text-xs">{formError}</p>}
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={createTeam.isPending || updateTeam.isPending}
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition"
+          {formError && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-card border border-danger-line bg-danger-bg px-4 py-3 text-sm text-danger"
             >
-              {createTeam.isPending || updateTeam.isPending
-                ? isEdit
-                  ? "Saving changes..."
-                  : "Creating profile..."
-                : isEdit
-                  ? "Save Changes"
-                  : "Register Club"}
-            </button>
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {formError}
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+            <Button as={Link} to={isEdit ? `/teams/${teamId}` : "/teams"} variant="ghost">
+              Cancel
+            </Button>
+            <Button type="submit" loading={isPending}>
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              {isEdit ? "Save changes" : "Register club"}
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -435,16 +432,27 @@ function TeamForm({ team, isEdit, teamId }) {
 function AddTeamPage() {
   const { teamId } = useParams();
   const isEdit = Boolean(teamId);
-  const { data: team, isLoading: teamLoading } = useTeam(teamId);
+  const {
+    data: team,
+    isLoading: teamLoading,
+    isError: teamError,
+    error,
+    refetch,
+  } = useTeam(teamId);
 
   if (isEdit && teamLoading) {
+    return <LoadingState label="Loading team…" />;
+  }
+
+  // Without this the edit form renders blank when the fetch fails, and
+  // submitting it would PATCH empty strings over a real team.
+  if (isEdit && teamError) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">
-          Initializing team form assets...
-        </p>
-      </div>
+      <ErrorState
+        title="Couldn't load team"
+        message={extractErrorMessage(error)}
+        onRetry={() => refetch()}
+      />
     );
   }
 

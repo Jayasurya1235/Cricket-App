@@ -1,77 +1,77 @@
 import { Link } from "react-router-dom";
+import { Plus, Users } from "lucide-react";
 import { useTeams } from "../hooks/useTeams";
-import { Users, Plus, ShieldAlert } from "lucide-react";
+import { extractErrorMessage } from "../api/client";
 import TeamCard from "../components/TeamCard";
+import {
+  Button,
+  CardSkeletonGrid,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+} from "../components/ui";
 
 function TeamsPage() {
-  const { data: teams, isLoading, isError, error } = useTeams();
+  const { data: teams, isLoading, isError, error, refetch } = useTeams();
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">Loading squad list...</p>
-      </div>
+      <>
+        <PageHeader
+          title="Teams"
+          description="All clubs registered in the league."
+        />
+        <CardSkeletonGrid count={6} />
+      </>
     );
   }
 
   if (isError) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl max-w-lg mx-auto text-center">
-        <ShieldAlert className="w-8 h-8 mx-auto mb-2 text-red-500" />
-        <h4 className="font-bold">Failed to load teams</h4>
-        <p className="text-sm mt-1">{error.message}</p>
-      </div>
+      <ErrorState
+        title="Couldn't load teams"
+        message={extractErrorMessage(error)}
+        onRetry={() => refetch()}
+      />
     );
   }
 
-  if (!teams || teams.length === 0) {
-    return (
-      <div className="bg-white border border-cricket-border rounded-2xl p-12 text-center max-w-lg mx-auto space-y-4 shadow-sm">
-        <Users className="w-12 h-12 text-emerald-500 mx-auto" />
-        <h3 className="text-xl font-bold text-gray-900">
-          No teams registered yet
-        </h3>
-        <p className="text-gray-500 text-sm">
-          Get started by registering the first official cricket squad in the
-          database.
-        </p>
-        <Link
-          to="/teams/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition"
-        >
-          <Plus className="w-4 h-4" /> Add First Team
-        </Link>
-      </div>
-    );
-  }
+  const list = teams ?? [];
+  const registerAction = (
+    <Button as={Link} to="/teams/new" variant="secondary">
+      <Plus className="size-4" aria-hidden="true" />
+      Register team
+    </Button>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            Teams Directory
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Displaying all {teams.length} professional clubs registered in the
-            league.
-          </p>
-        </div>
-        <Link
-          to="/teams/new"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm transition"
-        >
-          <Plus className="w-4 h-4" /> Register Team
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title="Teams"
+        description={`${list.length} ${list.length === 1 ? "club" : "clubs"} registered in the league.`}
+        actions={list.length > 0 ? registerAction : undefined}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {teams.map((team) => (
-          <TeamCard key={team.id} team={team} />
-        ))}
-      </div>
-    </div>
+      {list.length === 0 ? (
+        <EmptyState
+          icon={<Users className="size-6" aria-hidden="true" />}
+          title="No teams registered yet"
+          description="Register the first club to start building squads and fixtures."
+          action={
+            <Button as={Link} to="/teams/new">
+              <Plus className="size-4" aria-hidden="true" />
+              Register your first team
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((team) => (
+            <TeamCard key={team.id} team={team} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

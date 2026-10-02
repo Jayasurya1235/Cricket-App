@@ -1,10 +1,5 @@
-import { Trophy, ArrowRight, CheckCircle2 } from "lucide-react";
-
-function nameOf(map, id) {
-  const p = map?.[id];
-  if (!p) return `Player #${id}`;
-  return `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Player #${id}`;
-}
+import { Trophy, ArrowRight, CheckCircle2, BookOpen } from "lucide-react";
+import { displayName } from "../../utils/scoring";
 
 export default function InningsSummary({
   scorecard,
@@ -13,14 +8,17 @@ export default function InningsSummary({
   requiredRuns,
   canStartNextInnings,
   onStartNextInnings,
+  onOpenScorecard,
   isProcessing,
 }) {
   if (!scorecard) return null;
 
   const batsmen = [...(scorecard.batsmen || [])].sort((a, b) => b.runs - a.runs);
   const topBatsman = batsmen[0];
+  // Most wickets wins; ties are broken by the cheaper bowler (fewest runs
+  // conceded), so the tiebreak must sort ascending on runs_conceded.
   const bowlers = [...(scorecard.bowlers || [])].sort(
-    (a, b) => b.wickets - a.wickets || b.runs_conceded - a.runs_conceded,
+    (a, b) => b.wickets - a.wickets || a.runs_conceded - b.runs_conceded,
   );
   const topBowler = bowlers[0];
 
@@ -38,7 +36,7 @@ export default function InningsSummary({
               : "bg-gradient-to-r from-emerald-600 to-emerald-700"
         }`}
       >
-        <Trophy className="w-8 h-8 text-white/90 mx-auto mb-2" />
+        <Trophy className="w-8 h-8 text-white/90 mx-auto mb-2" aria-hidden="true" />
         <h2 className="text-lg font-black text-white tracking-tight">
           {chaseWon ? "Match Won!" : matchOver ? "Match Complete" : "Innings Complete"}
         </h2>
@@ -81,7 +79,7 @@ export default function InningsSummary({
                 Top Scorer
               </p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">
-                {nameOf(nameMap, topBatsman.player_id)}
+                {displayName(nameMap, topBatsman.player_id)}
               </p>
             </div>
             <p className="text-xl font-black text-emerald-700 tabular-nums">
@@ -97,7 +95,7 @@ export default function InningsSummary({
                 Best Bowler
               </p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">
-                {nameOf(nameMap, topBowler.player_id)}
+                {displayName(nameMap, topBowler.player_id)}
               </p>
             </div>
             <p className="text-xl font-black text-orange-700 tabular-nums">
@@ -107,26 +105,42 @@ export default function InningsSummary({
           </div>
         )}
 
-        {canStartNextInnings && (
-          <button
-            onClick={onStartNextInnings}
-            disabled={isProcessing}
-            className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm transition-all duration-150 active:scale-[0.98] flex items-center justify-center gap-2"
-          >
-            {isProcessing ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <ArrowRight className="w-4 h-4" />
-                Start Next Innings
-              </>
-            )}
-          </button>
-        )}
+        <div className="space-y-2">
+          {canStartNextInnings && (
+            <button
+              type="button"
+              onClick={onStartNextInnings}
+              disabled={isProcessing}
+              className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm transition-all duration-150 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              {isProcessing ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  Start Next Innings
+                </>
+              )}
+            </button>
+          )}
+
+          {/* ScoringControls is unmounted once the innings ends, so the full
+              scorecard has to stay reachable from here. */}
+          {onOpenScorecard && (
+            <button
+              type="button"
+              onClick={onOpenScorecard}
+              className="w-full h-11 rounded-xl border-2 border-cricket-border bg-white hover:bg-gray-50 text-gray-700 font-bold text-sm transition-all duration-150 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" aria-hidden="true" />
+              View Scorecard
+            </button>
+          )}
+        </div>
 
         {matchOver && (
           <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm font-bold">
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
             Scoring complete for this match
           </div>
         )}

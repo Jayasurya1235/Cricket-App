@@ -1,234 +1,238 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  AlertCircle,
+  Award,
+  CheckCircle2,
+  Pencil,
+  Plus,
+  Target,
+  Trash2,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { usePlayers } from "../hooks/usePlayers";
 import { useDeletePlayer } from "../hooks/useDeletePlayer";
 import { extractErrorMessage } from "../api/client";
 import {
-  Award,
-  Target,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Users,
-  ShieldAlert,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+  Avatar,
+  Badge,
+  Button,
+  CardSkeletonGrid,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  useConfirm,
+} from "../components/ui";
+
+function DetailRow({ icon, label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2.5">
+      <span
+        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-muted text-ink-subtle"
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <p className="min-w-0 text-[13px] leading-snug text-ink-muted">
+        <span className="font-medium text-ink-subtle">{label}: </span>
+        <span className="text-ink">{value}</span>
+      </p>
+    </div>
+  );
+}
+
+function PlayerCard({ player }) {
+  const navigate = useNavigate();
+  const deletePlayer = useDeletePlayer();
+  const { confirm } = useConfirm();
+  const [error, setError] = useState("");
+
+  const name = `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+  const squad = [
+    Array.isArray(player.role) ? player.role.join(", ") : player.role,
+    player.team?.name ?? player.team_name,
+    player.level?.name ?? player.level_name,
+  ]
+    .filter(Boolean)
+    .join(" • ");
+
+  async function handleDelete() {
+    const confirmed = await confirm({
+      title: `Delete ${name}?`,
+      description:
+        "This permanently removes the player and their squad assignments. This can't be undone.",
+      confirmLabel: "Delete player",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    setError("");
+    deletePlayer.mutate(player.id, {
+      onError: (err) => setError(extractErrorMessage(err)),
+    });
+  }
+
+  return (
+    <article className="flex flex-col rounded-card border border-line bg-surface p-5 shadow-card transition-[box-shadow,border-color] duration-200 hover:border-brand-200 hover:shadow-raised">
+      <div className="flex items-start gap-3">
+        <Avatar src={player.profile_image} name={name} size="lg" />
+
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-semibold leading-tight text-ink">
+            {name || "Unnamed player"}
+          </h3>
+          <p className="mt-1 text-[13px] text-ink-subtle">#{player.id}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => navigate(`/players/${player.id}/edit`)}
+            aria-label={`Edit ${name || "player"}`}
+            className="flex size-9 items-center justify-center rounded-lg text-ink-subtle transition hover:bg-surface-muted hover:text-ink"
+          >
+            <Pencil className="size-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deletePlayer.isPending}
+            aria-label={`Delete ${name || "player"}`}
+            className="flex size-9 items-center justify-center rounded-lg text-ink-subtle transition hover:bg-danger-50 hover:text-danger-700 disabled:opacity-50"
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        <DetailRow
+          icon={<UserRound className="size-3.5" />}
+          label="Gender"
+          value={player.gender}
+        />
+        <DetailRow
+          icon={<Award className="size-3.5" />}
+          label="Batting"
+          value={
+            player.batting_hand || player.batting_position
+              ? `${[player.batting_hand && `${player.batting_hand} handed`, player.batting_position]
+                  .filter(Boolean)
+                  .join(" • ")}`
+              : null
+          }
+        />
+        <DetailRow
+          icon={<Target className="size-3.5" />}
+          label="Bowling"
+          value={
+            player.bowling_hand || player.bowling_type
+              ? `${[player.bowling_hand && `${player.bowling_hand} handed`, player.bowling_type]
+                  .filter(Boolean)
+                  .join(" • ")}`
+              : null
+          }
+        />
+        <DetailRow icon={<Users className="size-3.5" />} label="Squad" value={squad} />
+      </div>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-4 flex items-start gap-2 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-[13px] text-danger-800"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {error}
+        </p>
+      )}
+
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-line pt-3">
+        <span className="text-[13px] text-ink-subtle">
+          {player.height && player.weight
+            ? `${player.height} cm • ${player.weight} kg`
+            : "Physicals not recorded"}
+        </span>
+        {player.is_phone_verified ? (
+          <Badge tone="success" size="sm">
+            <CheckCircle2 className="size-3" aria-hidden="true" />
+            Verified
+          </Badge>
+        ) : (
+          <Badge tone="warning" size="sm">
+            <AlertCircle className="size-3" aria-hidden="true" />
+            Pending OTP
+          </Badge>
+        )}
+      </div>
+    </article>
+  );
+}
 
 function PlayersPage() {
-  const navigate = useNavigate();
-  const { data: players, isLoading, isError, error } = usePlayers();
-  const deletePlayer = useDeletePlayer();
-
-  async function handleDelete(player) {
-    if (
-      !confirm(
-        `Delete player "${player.first_name} ${player.last_name}"? This cannot be undone.`,
-      )
-    )
-      return;
-    try {
-      await deletePlayer.mutateAsync(player.id);
-    } catch (err) {
-      alert(`Failed to delete player: ${extractErrorMessage(err)}`);
-    }
-  }
+  const { data: players, isLoading, isError, error, refetch } = usePlayers();
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">
-          Loading athletes database...
-        </p>
-      </div>
+      <>
+        <PageHeader
+          title="Players"
+          description="Every registered athlete in the league."
+        />
+        <CardSkeletonGrid count={6} />
+      </>
     );
   }
 
   if (isError) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl max-w-lg mx-auto text-center">
-        <ShieldAlert className="w-8 h-8 mx-auto mb-2 text-red-500" />
-        <h4 className="font-bold">Failed to load players</h4>
-        <p className="text-sm mt-1">{error.message}</p>
-      </div>
+      <ErrorState
+        title="Couldn't load players"
+        message={extractErrorMessage(error)}
+        onRetry={() => refetch()}
+      />
     );
   }
 
-  if (!players || players.length === 0) {
-    return (
-      <div className="bg-white border border-cricket-border rounded-2xl p-12 text-center max-w-lg mx-auto space-y-4 shadow-sm">
-        <Users className="w-12 h-12 text-emerald-500 mx-auto" />
-        <h3 className="text-xl font-bold text-gray-900">
-          No athletes registered yet
-        </h3>
-        <p className="text-gray-500 text-sm">
-          Start onboarding players to create squads and matches.
-        </p>
-        <Link
-          to="/players/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold transition"
-        >
-          <Plus className="w-4 h-4" /> Register First Player
-        </Link>
-      </div>
-    );
-  }
+  const list = players ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            Athletes Roster
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Displaying {players.length} registered players with full physical &
-            skill profiles.
-          </p>
+    <>
+      <PageHeader
+        title="Players"
+        description={`${list.length} ${list.length === 1 ? "athlete" : "athletes"} registered with full skill profiles.`}
+        actions={
+          list.length > 0 ? (
+            <Button as={Link} to="/players/new" variant="secondary">
+              <Plus className="size-4" aria-hidden="true" />
+              Add player
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {list.length === 0 ? (
+        <EmptyState
+          icon={<Users className="size-6" aria-hidden="true" />}
+          title="No players registered yet"
+          description="Start onboarding players to create squads and fixtures."
+          action={
+            <Button as={Link} to="/players/new">
+              <Plus className="size-4" aria-hidden="true" />
+              Register your first player
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((player) => (
+            <PlayerCard key={player.id} player={player} />
+          ))}
         </div>
-        <Link
-          to="/players/new"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm transition"
-        >
-          <Plus className="w-4 h-4" /> Add Player
-        </Link>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {players.map((player) => {
-          const initials =
-            `${player.first_name?.[0] ?? ""}${player.last_name?.[0] ?? ""}`.toUpperCase();
-          return (
-            <div
-              key={player.id}
-              className="bg-white border border-cricket-border rounded-xl p-5 hover:border-emerald-300 shadow-sm transition-all duration-300 flex flex-col justify-between"
-            >
-              <div>
-                {/* Profile Header card style from image 2 */}
-                <div className="flex items-center gap-3.5 mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-sm flex items-center justify-center shadow-inner overflow-hidden">
-                    {player.profile_image ? (
-                      <img
-                        src={player.profile_image}
-                        alt={`${player.first_name} ${player.last_name}`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      initials || "?"
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-gray-900 leading-snug">
-                      {player.first_name} {player.last_name}
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      Player ID: #{player.id}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-1">
-                    <button
-                      onClick={() => navigate(`/players/${player.id}/edit`)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
-                      title="Edit player"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(player)}
-                      disabled={deletePlayer.isPending}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-                      title="Delete player"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Skill Details */}
-                <div className="space-y-2.5 pt-1">
-                  <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                    <div className="p-1 rounded bg-sky-50 text-sky-600">
-                      <Users className="w-3.5 h-3.5" />
-                    </div>
-                    <span>
-                      <strong className="text-gray-500 font-medium">
-                        Gender:
-                      </strong>{" "}
-                      {player.gender || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                    <div className="p-1 rounded bg-amber-50 text-amber-500">
-                      <Award className="w-3.5 h-3.5" />
-                    </div>
-                    <span>
-                      <strong className="text-gray-500 font-medium">
-                        Batting:
-                      </strong>{" "}
-                      {player.batting_hand} Handed • {player.batting_position}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                    <div className="p-1 rounded bg-emerald-50 text-emerald-600">
-                      <Target className="w-3.5 h-3.5" />
-                    </div>
-                    <span>
-                      <strong className="text-gray-500 font-medium">
-                        Bowling:
-                      </strong>{" "}
-                      {player.bowling_hand} Hand • {player.bowling_type}
-                    </span>
-                  </div>
-                  {(player.role || player.team || player.level) && (
-                    <div className="flex items-center gap-2.5 text-sm text-gray-600">
-                      <div className="p-1 rounded bg-indigo-50 text-indigo-600">
-                        <Award className="w-3.5 h-3.5" />
-                      </div>
-                      <span>
-                        <strong className="text-gray-500 font-medium">
-                          Squad:
-                        </strong>{" "}
-                        {[
-                          player.role &&
-                            (Array.isArray(player.role)
-                              ? player.role.join(", ")
-                              : player.role),
-                          player.team?.name ?? player.team_name,
-                          player.level?.name ?? player.level_name,
-                        ]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Verified pill at bottom */}
-              <div className="mt-5 pt-3 border-t border-cricket-border/60 flex items-center justify-between">
-                <span className="text-xs text-gray-500">
-                  {player.height && player.weight
-                    ? `${player.height}cm • ${player.weight}kg`
-                    : "Physicals: —"}
-                </span>
-                <div>
-                  {player.is_phone_verified ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      <AlertCircle className="w-3 h-3 text-amber-500" />
-                      Pending OTP
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+      )}
+    </>
   );
 }
+
 export default PlayersPage;

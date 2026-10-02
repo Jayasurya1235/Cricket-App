@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Camera, Image, Link, X } from "lucide-react";
+import { Button, Input } from "./ui";
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_DIMENSION = 512;
@@ -46,6 +47,22 @@ function ProfileImageUpload({ value, onChange, label = "Profile Image" }) {
   const [showUrl, setShowUrl] = useState(false);
   const [processing, setProcessing] = useState(false);
 
+  // The URL field keeps its own draft so the parent form is only mutated on
+  // blur/Enter, rather than on every keystroke.
+  const remoteUrl = value && !value.startsWith("data:") ? value : "";
+  const [urlDraft, setUrlDraft] = useState(remoteUrl);
+  const [syncedRemote, setSyncedRemote] = useState(remoteUrl);
+
+  // Reset the draft while rendering when the stored value changes from outside
+  // the field (uploading a photo, removing the image, loading a saved record).
+  if (remoteUrl !== syncedRemote) {
+    setSyncedRemote(remoteUrl);
+    setUrlDraft(remoteUrl);
+  }
+
+  const fileInputId = useId();
+  const urlInputId = useId();
+
   async function handleFile(file) {
     setError("");
     if (!file) return;
@@ -77,42 +94,50 @@ function ProfileImageUpload({ value, onChange, label = "Profile Image" }) {
     }
   }
 
-  function handleUrlInput(url) {
+  function commitUrl() {
+    const next = urlDraft.trim();
+    if (next === remoteUrl) return;
     setError("");
-    onChange(url.trim());
+    onChange(next);
   }
 
   function handleRemove() {
     setError("");
+    setUrlDraft("");
     onChange("");
   }
 
   return (
     <div>
-      <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+      <label
+        htmlFor={fileInputId}
+        className="mb-1.5 block text-[13px] font-semibold text-ink"
+      >
         {label}
-        <span className="normal-case font-normal"> (optional)</span>
+        <span className="font-normal text-ink-subtle"> (optional)</span>
       </label>
 
       <div className="flex items-center gap-4">
         {/* Preview */}
-        <div className="relative w-20 h-20 rounded-full bg-cricket-dark border border-cricket-border overflow-hidden flex items-center justify-center shrink-0">
+        <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-muted">
           {value ? (
             <img
               src={value}
               alt="Profile preview"
-              className="w-full h-full object-cover"
+              className="size-full object-cover"
             />
           ) : (
-            <Image className="w-7 h-7 text-gray-400" />
+            <Image className="size-7 text-ink-faint" aria-hidden="true" />
           )}
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow transition"
+            disabled={processing}
+            aria-label={`${processing ? "Processing" : "Upload"} profile photo`}
             title="Upload photo"
+            className="absolute bottom-0 right-0 flex size-6 items-center justify-center rounded-full bg-brand-600 text-white shadow transition hover:bg-brand-700 disabled:opacity-60"
           >
-            <Camera className="w-3.5 h-3.5" />
+            <Camera className="size-3.5" aria-hidden="true" />
           </button>
         </div>
 
@@ -120,41 +145,47 @@ function ProfileImageUpload({ value, onChange, label = "Profile Image" }) {
         <div className="space-y-2">
           <input
             ref={inputRef}
+            id={fileInputId}
+            name="profile_image_file"
             type="file"
             accept="image/*"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="subtle"
+              size="sm"
+              loading={processing}
               onClick={() => inputRef.current?.click()}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition"
             >
-              <Camera className="w-3.5 h-3.5" />
-              {processing ? "Processing..." : "Upload Photo"}
-            </button>
+              <Camera className="size-3.5" aria-hidden="true" />
+              {processing ? "Processing…" : "Upload Photo"}
+            </Button>
             {value && (
-              <button
+              <Button
                 type="button"
+                variant="dangerGhost"
+                size="sm"
                 onClick={handleRemove}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-600 border border-red-200 hover:border-transparent text-red-600 hover:text-white rounded-lg text-xs font-bold transition"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="size-3.5" aria-hidden="true" />
                 Remove
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
+              aria-expanded={showUrl}
               onClick={() => setShowUrl((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cricket-card border border-cricket-border hover:border-emerald-300 rounded-lg text-xs font-semibold text-gray-600 transition"
             >
-              <Link className="w-3.5 h-3.5" />
+              <Link className="size-3.5" aria-hidden="true" />
               {showUrl ? "Hide URL" : "Or paste URL"}
-            </button>
+            </Button>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-ink-faint">
             JPG, PNG or WebP up to {MAX_FILE_SIZE_MB} MB. Images are
             automatically resized.
           </p>
@@ -163,20 +194,36 @@ function ProfileImageUpload({ value, onChange, label = "Profile Image" }) {
 
       {showUrl && (
         <div className="mt-3">
-          <label className="block text-[11px] uppercase font-bold text-gray-500 mb-1.5">
+          <label
+            htmlFor={urlInputId}
+            className="mb-1.5 block text-[13px] font-semibold text-ink"
+          >
             Image URL
           </label>
-          <input
+          <Input
+            id={urlInputId}
+            name="profile_image_url"
             type="url"
-            value={value && !value.startsWith("data:") ? value : ""}
-            onChange={(e) => handleUrlInput(e.target.value)}
+            autoComplete="off"
             placeholder="https://example.com/player-photo.jpg"
-            className="w-full bg-cricket-dark border border-cricket-border focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none transition"
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            onBlur={commitUrl}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitUrl();
+              }
+            }}
           />
         </div>
       )}
 
-      {error && <p className="text-red-500 text-xs mt-1.5">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-1.5 text-[13px] text-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

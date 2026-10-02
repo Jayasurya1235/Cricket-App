@@ -13,21 +13,21 @@ export default function ScoreSummary({
       <StatCard
         label="Run Rate"
         value={Number(scorecard.current_run_rate || 0).toFixed(2)}
-        icon={<TrendingUp className="w-3.5 h-3.5" />}
+        icon={<TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />}
         color="emerald"
       />
       <StatCard label="Extras" value={scorecard.extras ?? 0} color="gray" />
       <StatCard
         label="Overs Bowled"
         value={scorecard.overs_bowled_str}
-        icon={<Layers className="w-3.5 h-3.5" />}
+        icon={<Layers className="w-3.5 h-3.5" aria-hidden="true" />}
         color="blue"
       />
       {isChase && scorecard.target != null ? (
         <StatCard
           label="Need"
           value={`${requiredRuns ?? 0} from ${ballsRemaining}`}
-          icon={<Zap className="w-3.5 h-3.5" />}
+          icon={<Zap className="w-3.5 h-3.5" aria-hidden="true" />}
           color="red"
           highlight
         />
@@ -35,7 +35,7 @@ export default function ScoreSummary({
         <StatCard
           label="Target"
           value={scorecard.target ?? "—"}
-          icon={<Target className="w-3.5 h-3.5" />}
+          icon={<Target className="w-3.5 h-3.5" aria-hidden="true" />}
           color="amber"
         />
       )}

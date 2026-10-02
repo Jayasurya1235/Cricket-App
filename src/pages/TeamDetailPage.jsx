@@ -1,5 +1,18 @@
-import { useState, useMemo } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  CheckCircle2,
+  Mail,
+  MapPin,
+  Phone,
+  Shield,
+  Trash2,
+  Trophy,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useTeam } from "../hooks/useTeam";
 import { useDeleteTeam } from "../hooks/useDeleteTeam";
 import { useAddPlayerToTeam } from "../hooks/useAddPlayerToTeam";
@@ -10,43 +23,107 @@ import { useLevels } from "../hooks/useLevels";
 import { useCountryCodes } from "../hooks/useCountryCodes";
 import { extractErrorMessage } from "../api/client";
 import {
-  ArrowLeft,
-  Trash2,
-  MapPin,
-  Calendar,
-  User,
-  UserPlus,
-  UserMinus,
-  Mail,
-  Phone,
-  Users,
-  Trophy,
-  ShieldAlert,
-  Search,
-  CheckCircle2,
-  UserCheck,
-} from "lucide-react";
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Field,
+  Input,
+  LoadingState,
+  PageHeader,
+  SearchInput,
+  SectionHeading,
+  Select,
+  TeamBadge,
+  useConfirm,
+} from "../components/ui";
 
 const PLAYER_ROLES = [
   { value: "playing_11", label: "Playing XI" },
   { value: "substitute", label: "Substitute" },
   { value: "coach", label: "Coach" },
-  { value: "support_staff", label: "Support Staff" },
+  { value: "support_staff", label: "Support staff" },
 ];
 
 const SQUAD_GROUPS = [
-  { key: "playing_11", label: "Playing XI", icon: Users },
-  { key: "substitutes", label: "Substitutes", icon: UserCheck },
-  { key: "bench", label: "Bench", icon: Users },
+  { key: "playing_11", label: "Playing XI" },
+  { key: "substitutes", label: "Substitutes" },
+  { key: "bench", label: "Bench" },
 ];
+
+function ProfileRow({ icon: Icon, label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2.5">
+      <Icon
+        className="mt-0.5 size-4 shrink-0 text-ink-faint"
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+          {label}
+        </dt>
+        <dd className="mt-0.5 truncate text-sm font-medium text-ink">{value}</dd>
+      </div>
+    </div>
+  );
+}
+
+function RosterMemberCard({ player, onRemove }) {
+  const name = `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+
+  return (
+    <Card className="flex items-start justify-between gap-3 p-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <Avatar src={player.profile_image} name={name} size="md" shape="rounded" />
+        <div className="min-w-0">
+          <h4 className="truncate text-sm font-semibold leading-tight text-ink">
+            {name || "Unnamed player"}
+          </h4>
+          <Badge tone="neutral" size="sm" className="mt-1.5 capitalize">
+            {String(player.role ?? "playing_11").replace(/_/g, " ")}
+          </Badge>
+          {player.email && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-subtle">
+              <Mail className="size-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
+              <span className="truncate">{player.email}</span>
+            </p>
+          )}
+          {player.mobile_number && (
+            <p className="mt-1 flex items-center gap-1.5 text-[13px] text-ink-subtle">
+              <Phone className="size-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
+              <span className="truncate">
+                {player.country_code} {player.mobile_number}
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onRemove(player)}
+        aria-label={`Remove ${name || "player"} from squad`}
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition hover:bg-danger-50 hover:text-danger-700"
+      >
+        <UserMinus className="size-4" aria-hidden="true" />
+      </button>
+    </Card>
+  );
+}
 
 function TeamDetailPage() {
   const { teamId } = useParams();
   const navigate = useNavigate();
-  const { data: team, isLoading, isError, error } = useTeam(teamId);
+  const { confirm } = useConfirm();
+
+  const { data: team, isLoading, isError, error, refetch } = useTeam(teamId);
   const { data: players, isLoading: playersLoading } = usePlayers();
   const { data: countryCodes } = useCountryCodes();
   const { data: levels } = useLevels();
+
   const deleteTeam = useDeleteTeam();
   const addPlayer = useAddPlayerToTeam(teamId);
   const removePlayer = useRemovePlayerFromTeam(teamId);
@@ -56,23 +133,23 @@ function TeamDetailPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [addError, setAddError] = useState("");
   const [addSuccess, setAddSuccess] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [assignLevel, setAssignLevel] = useState("");
   const [assignRole, setAssignRole] = useState("playing_11");
   const [assignError, setAssignError] = useState("");
-  const [assignSuccess, setAssignSuccess] = useState("");
 
   const roster = useMemo(() => {
     if (!team) return [];
     if (Array.isArray(team.players) && team.players.length > 0) {
-      return team.players.map((p) => ({ ...p, squad_group: null }));
+      return team.players.map((player) => ({ ...player, squad_group: null }));
     }
     const grouped = [];
     for (const group of SQUAD_GROUPS) {
-      for (const p of team[group.key] || []) {
-        grouped.push({ ...p, squad_group: group.key });
+      for (const player of team[group.key] || []) {
+        grouped.push({ ...player, squad_group: group.key });
       }
     }
     return grouped;
@@ -84,59 +161,84 @@ function TeamDetailPage() {
 
   const availablePlayers = useMemo(() => {
     if (!players) return [];
-    const q = searchQuery.trim().toLowerCase();
-    return players.filter((p) => {
-      if (rosterIds.has(p.id)) return false;
-      if (!q) return true;
+    const query = searchQuery.trim().toLowerCase();
+    return players.filter((player) => {
+      if (rosterIds.has(player.id)) return false;
+      if (!query) return true;
       return (
-        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
-        String(p.mobile_number ?? "").includes(q) ||
-        String(p.email ?? "").toLowerCase().includes(q)
+        `${player.first_name ?? ""} ${player.last_name ?? ""}`
+          .toLowerCase()
+          .includes(query) ||
+        String(player.mobile_number ?? "").includes(query) ||
+        String(player.email ?? "").toLowerCase().includes(query)
       );
     });
   }, [players, searchQuery, rosterIds]);
 
   const selectedPlayer = players?.find(
-    (p) => p.id === Number(selectedPlayerId),
+    (player) => player.id === Number(selectedPlayerId),
   );
 
   async function handleDelete() {
-    if (!confirm(`Delete team "${team.name}"? This cannot be undone.`)) return;
-    try {
-      await deleteTeam.mutateAsync(teamId);
-      navigate("/teams");
-    } catch (err) {
-      alert(`Failed to delete team: ${extractErrorMessage(err)}`);
-    }
+    const confirmed = await confirm({
+      title: `Delete ${team.name}?`,
+      description:
+        "This permanently removes the team and its player registrations. This can't be undone.",
+      confirmLabel: "Delete team",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    deleteTeam.mutate(teamId, {
+      onSuccess: () => navigate("/teams", { replace: true }),
+      onError: (err) => setActionError(extractErrorMessage(err)),
+    });
   }
 
-  async function handleAddPlayer(e) {
-    e.preventDefault();
+  async function handleRemovePlayer(player) {
+    const name = `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();
+    const confirmed = await confirm({
+      title: `Remove ${name || "this player"}?`,
+      description: "They stay registered, but are removed from this squad.",
+      confirmLabel: "Remove from squad",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    setActionError("");
+    removePlayer.mutate(player.id, {
+      onError: (err) => setActionError(extractErrorMessage(err)),
+    });
+  }
+
+  async function handleAddPlayer(event) {
+    event.preventDefault();
     setAddError("");
     setAddSuccess("");
     try {
       await addPlayer.mutateAsync({
         country_code: countryCode,
-        mobile_number: Number(mobileNumber),
+        // TeamPlayerByPhone types mobile_number as a string — keep it verbatim
+        // so leading zeroes are preserved when matching the player.
+        mobile_number: mobileNumber.trim(),
         role: "playing_11",
       });
       setMobileNumber("");
-      setAddSuccess("Player added to the squad successfully!");
+      setAddSuccess("Player added to the squad.");
     } catch (err) {
       setAddError(extractErrorMessage(err));
     }
   }
 
-  async function handleAssignPlayer(e) {
-    e.preventDefault();
+  async function handleAssignPlayer(event) {
+    event.preventDefault();
     setAssignError("");
-    setAssignSuccess("");
     if (!selectedPlayerId) {
-      setAssignError("Please select a player to assign.");
+      setAssignError("Select a player to assign.");
       return;
     }
     if (!assignLevel) {
-      setAssignError("Please select the level for this player.");
+      setAssignError("Select a level for this player.");
       return;
     }
     try {
@@ -150,495 +252,328 @@ function TeamDetailPage() {
       setSearchQuery("");
       setAssignLevel("");
       setAssignRole("playing_11");
-      setAssignSuccess(
-        `Player assigned to ${team.name} successfully!`,
-      );
     } catch (err) {
       setAssignError(extractErrorMessage(err));
     }
   }
 
-  async function handleRemovePlayer(playerId) {
-    if (!confirm("Remove this player from the team?")) return;
-    try {
-      await removePlayer.mutateAsync(playerId);
-    } catch (err) {
-      alert(`Failed to remove player: ${extractErrorMessage(err)}`);
-    }
-  }
-
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 mt-4 text-sm">Loading team metadata...</p>
-      </div>
-    );
+    return <LoadingState label="Loading team…" />;
   }
 
   if (isError) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl max-w-lg mx-auto text-center">
-        <ShieldAlert className="w-8 h-8 mx-auto mb-2 text-red-500" />
-        <h4 className="font-bold">Failed to load team info</h4>
-        <p className="text-sm mt-1">{error.message}</p>
-      </div>
+      <ErrorState
+        title="Couldn't load team"
+        message={extractErrorMessage(error)}
+        onRetry={() => refetch()}
+      />
     );
   }
 
   if (!team) {
     return (
-      <div className="bg-white border border-cricket-border rounded-2xl p-12 text-center max-w-lg mx-auto space-y-3 shadow-sm">
-        <ShieldAlert className="w-12 h-12 text-emerald-500 mx-auto" />
-        <h3 className="text-xl font-bold text-gray-900">Team not found</h3>
-        <Link to="/teams" className="text-emerald-600 hover:underline">
-          Return to Teams Directory
-        </Link>
-      </div>
+      <EmptyState
+        icon={<Shield className="size-6" aria-hidden="true" />}
+        title="Team not found"
+        description="This team may have been removed, or the link is incorrect."
+        action={
+          <Button as={Link} to="/teams" variant="secondary">
+            Back to teams
+          </Button>
+        }
+      />
     );
   }
 
+  const image = team.logo || team.logo_url;
+  const isFlatRoster = roster.some((player) => player.squad_group === null);
   const groupedRoster = SQUAD_GROUPS.map((group) => ({
     group,
-    members: roster.filter((p) => p.squad_group === group.key),
-  }));
-
-  const isFlatRoster = roster.some((p) => p.squad_group === null);
+    members: roster.filter((player) => player.squad_group === group.key),
+  })).filter(({ members }) => members.length > 0);
 
   return (
-    <div className="space-y-6">
-      {/* Back navigation header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <Link
-          to="/teams"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-emerald-600 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Teams Directory
-        </Link>
-        <button
-          onClick={handleDelete}
-          disabled={deleteTeam.isPending}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-600 border border-red-200 hover:border-transparent text-red-600 hover:text-white rounded-lg text-xs font-bold transition disabled:opacity-50"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          {deleteTeam.isPending ? "Deleting..." : "Delete Team"}
-        </button>
-      </div>
-
-      {/* Main Grid: Detail + Squad Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel: Profile Metadata */}
-        <div className="space-y-6">
-          <div className="bg-white border border-cricket-border rounded-xl p-5 space-y-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              {team.logo || team.logo_url ? (
-                <div className="w-10 h-10 rounded-lg border border-cricket-border overflow-hidden flex items-center justify-center shrink-0 bg-cricket-card">
-                  <img
-                    src={team.logo || team.logo_url}
-                    alt={team.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold">
-                  {team.short_name}
-                </div>
-              )}
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">{team.name}</h2>
-                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
-                  Club Profile
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t border-cricket-border/60 pt-4 space-y-3.5 text-sm">
-              <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-gray-500">Home Ground</p>
-                  <p className="text-gray-600 font-medium">{team.homeground}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <User className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-gray-500">Club Founder</p>
-                  <p className="text-gray-600 font-medium">{team.founder}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <Calendar className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-gray-500">Founded Year</p>
-                  <p className="text-gray-600 font-medium">
-                    {team.founded_year}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <Trophy className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-gray-500">Owner / Investor</p>
-                  <p className="text-gray-600 font-medium">{team.owner}</p>
-                </div>
-              </div>
-              {team.level && (
-                <div className="flex items-start gap-2.5">
-                  <Trophy className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-gray-500">Level</p>
-                    <p className="text-gray-600 font-medium">{team.level}</p>
-                  </div>
-                </div>
-              )}
-            </div>
+    <>
+      <PageHeader
+        breadcrumbs={[{ label: "Teams", to: "/teams" }, { label: team.name }]}
+        title={team.name}
+        description={team.homeground || "Club profile and squad management"}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button as={Link} to={`/teams/${team.id}/edit`} variant="secondary">
+              Edit team
+            </Button>
+            <Button
+              variant="dangerGhost"
+              onClick={handleDelete}
+              loading={deleteTeam.isPending}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              Delete team
+            </Button>
           </div>
+        }
+      />
 
-          {/* Assign Existing Player */}
-          <div className="bg-white border border-cricket-border rounded-xl p-5 shadow-sm space-y-3">
-            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-600" />
-              Assign Existing Player
-            </h3>
-            <p className="text-[11px] text-gray-500 leading-relaxed">
-              Pick a registered player from the system and assign them to this
-              team with a level and role.
-            </p>
+      {actionError && (
+        <p
+          role="alert"
+          className="mb-6 rounded-card border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800"
+        >
+          {actionError}
+        </p>
+      )}
 
-            <form onSubmit={handleAssignPlayer} className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6">
+          <Card className="p-5">
+            <div className="flex items-center gap-3">
+              <TeamBadge
+                name={team.name}
+                shortName={team.short_name}
+                src={image}
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-semibold text-ink">
+                  {team.name}
+                </p>
+                <p className="mt-0.5 text-[13px] text-ink-subtle">
+                  {team.short_name}
+                </p>
+              </div>
+            </div>
+
+            <dl className="mt-5 space-y-3.5 border-t border-line pt-4">
+              <ProfileRow
+                icon={MapPin}
+                label="Home ground"
+                value={team.homeground}
+              />
+              <ProfileRow icon={Users} label="Founder" value={team.founder} />
+              <ProfileRow icon={Trophy} label="Founded" value={team.founded_year} />
+              <ProfileRow icon={Trophy} label="Owner" value={team.owner} />
+              <ProfileRow icon={Trophy} label="Level" value={team.level} />
+            </dl>
+          </Card>
+
+          <Card className="p-5">
+            <SectionHeading
+              title="Assign existing player"
+              description="Pick a registered player and give them a level and role."
+            />
+
+            <form onSubmit={handleAssignPlayer} className="space-y-4">
+              <Field label="Search players">
+                <SearchInput
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
                     setSelectedPlayerId("");
                   }}
-                  className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded pl-8 pr-3 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none"
-                  placeholder="Search by name, phone or email..."
+                  placeholder="Search by name, phone, or email"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">
-                  Registered Player
-                </label>
-                <select
+              <Field label="Registered player">
+                <Select
                   value={selectedPlayerId}
-                  onChange={(e) => setSelectedPlayerId(e.target.value)}
-                  className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none"
+                  onChange={(event) => setSelectedPlayerId(event.target.value)}
+                  disabled={playersLoading}
                 >
-                  <option value="" className="bg-white">
+                  <option value="">
                     {playersLoading
-                      ? "Loading players..."
+                      ? "Loading players…"
                       : availablePlayers.length === 0
-                        ? "No available players to assign"
+                        ? "No available players"
                         : "Select a player"}
                   </option>
-                  {availablePlayers.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-white">
-                      {p.first_name} {p.last_name} — {p.country_code}{" "}
-                      {p.mobile_number}
+                  {availablePlayers.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.first_name} {player.last_name} — {player.country_code}{" "}
+                      {player.mobile_number}
                     </option>
                   ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">
-                    Level
-                  </label>
-                  <select
-                    required
-                    value={assignLevel}
-                    onChange={(e) => setAssignLevel(e.target.value)}
-                    className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none"
-                  >
-                    <option value="" className="bg-white">
-                      Select level
-                    </option>
-                    {levels?.map((lvl) => (
-                      <option key={lvl.id} value={lvl.id} className="bg-white">
-                        {lvl.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">
-                    Role
-                  </label>
-                  <select
-                    value={assignRole}
-                    onChange={(e) => setAssignRole(e.target.value)}
-                    className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none"
-                  >
-                    {PLAYER_ROLES.map((r) => (
-                      <option key={r.value} value={r.value} className="bg-white">
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                </Select>
+              </Field>
 
               {selectedPlayer && (
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded p-2 text-[11px] text-emerald-800">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                <p className="flex items-start gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[13px] text-brand-900">
+                  <CheckCircle2
+                    className="mt-0.5 size-4 shrink-0"
+                    aria-hidden="true"
+                  />
                   <span>
-                    {selectedPlayer.first_name} {selectedPlayer.last_name}{" "}
-                    ({selectedPlayer.batting_position || "Player"})
+                    Assigning {selectedPlayer.first_name}{" "}
+                    {selectedPlayer.last_name}
+                    {selectedPlayer.batting_position
+                      ? ` (${selectedPlayer.batting_position})`
+                      : ""}
                   </span>
-                </div>
-              )}
-
-              {assignError && (
-                <p className="text-red-500 text-xs">{assignError}</p>
-              )}
-              {assignSuccess && (
-                <p className="text-green-600 text-xs font-semibold">
-                  {assignSuccess}
                 </p>
               )}
 
-              <button
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Level">
+                  <Select
+                    value={assignLevel}
+                    onChange={(event) => setAssignLevel(event.target.value)}
+                  >
+                    <option value="">Select level</option>
+                    {levels?.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Role">
+                  <Select
+                    value={assignRole}
+                    onChange={(event) => setAssignRole(event.target.value)}
+                  >
+                    {PLAYER_ROLES.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+
+              {assignError && (
+                <p role="alert" className="text-[13px] text-danger">
+                  {assignError}
+                </p>
+              )}
+
+              <Button
                 type="submit"
-                disabled={assignPlayer.isPending}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold py-2 transition disabled:opacity-50"
+                fullWidth
+                loading={assignPlayer.isPending}
+                disabled={availablePlayers.length === 0}
               >
-                {assignPlayer.isPending ? "Assigning Player..." : "Assign to Team"}
-              </button>
+                <UserCheck className="size-4" aria-hidden="true" />
+                Assign to team
+              </Button>
             </form>
-          </div>
+          </Card>
         </div>
 
-        {/* Right Panel: Squad Listing */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-600" />
-              Squad Roster ({squadCount})
-            </h3>
-            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-              {isFlatRoster
-                ? `${squadCount} members`
-                : `${roster.filter((p) => p.squad_group === "playing_11").length} XI · ${roster.filter((p) => p.squad_group === "substitutes").length} Subs · ${roster.filter((p) => p.squad_group === "bench").length} Bench`}
-            </span>
-          </div>
+        <div className="lg:col-span-2 space-y-6">
+          <SectionHeading
+            title={`Squad roster (${squadCount})`}
+            description={
+              isFlatRoster
+                ? `${roster.length} registered ${roster.length === 1 ? "member" : "members"}`
+                : groupedRoster
+                    .map(
+                      ({ group, members }) =>
+                        `${members.length} ${group.label.toLowerCase()}`,
+                    )
+                    .join(" · ")
+            }
+          />
 
           {squadCount === 0 ? (
-            <div className="bg-white border border-cricket-border rounded-xl p-8 text-center shadow-sm">
-              <p className="text-gray-500 text-sm">
-                No players added to this team yet.
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Assign a registered player using the panel on the left, or add
-                one by phone number below.
-              </p>
-            </div>
-          ) : isFlatRoster ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {roster.map((player) => {
-                return (
-                  <div
-                    key={player.id}
-                    className="bg-white border border-cricket-border rounded-xl p-4 flex justify-between items-start group shadow-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      {player.profile_image ? (
-                        <img
-                          src={player.profile_image}
-                          alt={`${player.first_name} ${player.last_name}`}
-                          className="w-10 h-10 rounded-lg object-cover border border-cricket-border"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 font-bold flex items-center justify-center text-xs">
-                          {`${player.first_name?.[0] ?? ""}${player.last_name?.[0] ?? ""}`.toUpperCase() || "?"}
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-bold text-sm text-gray-900">
-                          {player.first_name} {player.last_name}
-                        </p>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full mt-1 capitalize">
-                          {player.role || "playing_11"}
-                        </span>
-                        {player.email && (
-                          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-500">
-                            <Mail className="w-3 h-3 text-gray-400" />
-                            <span>{player.email}</span>
-                          </div>
-                        )}
-                        {player.mobile_number && (
-                          <div className="flex items-center gap-1 text-[11px] text-gray-500">
-                            <Phone className="w-3 h-3 text-gray-400" />
-                            <span>
-                              {player.country_code} {player.mobile_number}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleRemovePlayer(player.id)}
-                      className="inline-flex items-center justify-center p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition"
-                      title="Remove from squad"
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            <EmptyState
+              icon={<Users className="size-6" aria-hidden="true" />}
+              title="No players in this squad yet"
+              description="Assign a registered player, or add one by phone number below."
+            />
           ) : (
-            <div className="space-y-5">
-              {groupedRoster.map(({ group, members }) => {
-                if (members.length === 0) return null;
-                const GroupIcon = group.icon;
-                return (
-                  <div key={group.key} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <GroupIcon className="w-4 h-4 text-emerald-600" />
-                      <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-                        {group.label}
-                      </h4>
-                      <span className="text-[11px] text-gray-400 font-semibold">
-                        {members.length}
-                      </span>
-                      <div className="flex-1 h-px bg-cricket-border/60" />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {members.map((player) => {
-                        const initials =
-                          `${player.first_name?.[0] ?? ""}${player.last_name?.[0] ?? ""}`.toUpperCase();
-                        return (
-                          <div
+            <div className="space-y-6">
+              {isFlatRoster ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {roster.map((player) => (
+                    <RosterMemberCard
+                      key={player.id}
+                      player={player}
+                      onRemove={handleRemovePlayer}
+                    />
+                  ))}
+                </div>
+              ) : (
+                groupedRoster.map(({ group, members }) => (
+                    <section key={group.key}>
+                      <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-subtle">
+                        {group.label}{" "}
+                        <span className="text-ink-faint">({members.length})</span>
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {members.map((player) => (
+                          <RosterMemberCard
                             key={player.id}
-                            className="bg-white border border-cricket-border rounded-xl p-4 flex justify-between items-start group shadow-sm"
-                          >
-                            <div className="flex items-center gap-3">
-                              {player.profile_image ? (
-                                <img
-                                  src={player.profile_image}
-                                  alt={`${player.first_name} ${player.last_name}`}
-                                  className="w-10 h-10 rounded-lg object-cover border border-cricket-border"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 font-bold flex items-center justify-center text-xs">
-                                  {initials || "?"}
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-bold text-sm text-gray-900">
-                                  {player.first_name} {player.last_name}
-                                </p>
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full mt-1 capitalize">
-                                  {player.role || "playing_11"}
-                                </span>
-                                {player.email && (
-                                  <div className="flex items-center gap-1 mt-1.5 text-[11px] text-gray-500">
-                                    <Mail className="w-3 h-3 text-gray-400" />
-                                    <span>{player.email}</span>
-                                  </div>
-                                )}
-                                {player.mobile_number && (
-                                  <div className="flex items-center gap-1 text-[11px] text-gray-500">
-                                    <Phone className="w-3 h-3 text-gray-400" />
-                                    <span>
-                                      {player.country_code} {player.mobile_number}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => handleRemovePlayer(player.id)}
-                              className="inline-flex items-center justify-center p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition"
-                              title="Remove from squad"
-                            >
-                              <UserMinus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                            player={player}
+                            onRemove={handleRemovePlayer}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                ))
+              )}
             </div>
           )}
 
-          {/* Add Player By Phone */}
-          <div className="bg-white border border-cricket-border rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <UserPlus className="w-4 h-4 text-emerald-600" />
-              <h3 className="font-bold text-gray-900 text-sm">
-                Add Player to Squad by Phone
-              </h3>
-            </div>
-            <form onSubmit={handleAddPlayer} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-[5rem_1fr] gap-2">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">
-                    Code
-                  </label>
-                  <select
+          <Card className="p-5">
+            <SectionHeading
+              title="Add player by phone"
+              description="The athlete must already be registered with this phone number."
+            />
+
+            <form onSubmit={handleAddPlayer} className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[6rem_1fr]">
+                <Field label="Code">
+                  <Select
                     value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none"
+                    onChange={(event) => setCountryCode(event.target.value)}
                   >
-                    {countryCodes?.map((cc) => (
-                      <option key={cc.code} value={cc.code} className="bg-white">
-                        {cc.code}
+                    {countryCodes?.map((entry) => (
+                      <option key={entry.code} value={entry.code}>
+                        {entry.code}
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">
-                    Mobile Number
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value)}
-                    className="w-full bg-white border border-cricket-border focus:border-emerald-500 rounded px-2.5 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none"
+                  </Select>
+                </Field>
+
+                <Field label="Mobile number" error={addError} required>
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
                     placeholder="9876543210"
+                    value={mobileNumber}
+                    onChange={(event) => setMobileNumber(event.target.value)}
                   />
-                </div>
+                </Field>
               </div>
 
-              {addError && <p className="text-red-500 text-xs">{addError}</p>}
               {addSuccess && (
-                <p className="text-green-600 text-xs font-semibold">
+                <p
+                  role="status"
+                  className="flex items-start gap-2 rounded-lg border border-success-line bg-success-bg px-3 py-2 text-[13px] text-success"
+                >
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                   {addSuccess}
                 </p>
               )}
 
-              <button
+              <Button
                 type="submit"
-                disabled={addPlayer.isPending}
-                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold py-2 px-4 transition disabled:opacity-50"
+                variant="secondary"
+                loading={addPlayer.isPending}
+                disabled={!mobileNumber.trim()}
               >
-                <UserPlus className="w-3.5 h-3.5" />
-                {addPlayer.isPending ? "Adding Player..." : "Add to Squad"}
-              </button>
+                <UserPlus className="size-4" aria-hidden="true" />
+                Add to squad
+              </Button>
             </form>
-            <p className="text-[10px] text-gray-500 mt-2.5 leading-relaxed">
-              Note: The athlete must already be fully registered with this phone
-              number.
-            </p>
-          </div>
+          </Card>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

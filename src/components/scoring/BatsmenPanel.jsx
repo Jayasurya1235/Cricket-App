@@ -1,3 +1,5 @@
+import { displayName } from "../../utils/scoring";
+
 export default function BatsmenPanel({ scorecard, nameMap }) {
   if (!scorecard?.batsmen?.length) return null;
 
@@ -27,7 +29,7 @@ export default function BatsmenPanel({ scorecard, nameMap }) {
             <BatsmanRow
               key={b.player_id}
               batsman={b}
-              name={nameOf(nameMap, b.player_id)}
+              name={displayName(nameMap, b.player_id)}
               isStriker={b.player_id === scorecard.striker_id}
             />
           ))}
@@ -41,12 +43,6 @@ export default function BatsmenPanel({ scorecard, nameMap }) {
       )}
     </div>
   );
-}
-
-function nameOf(map, id) {
-  const p = map?.[id];
-  if (!p) return `Player #${id}`;
-  return `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Player #${id}`;
 }
 
 function BatsmanRow({ batsman, name, isStriker }) {

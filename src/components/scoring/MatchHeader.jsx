@@ -21,15 +21,17 @@ export default function MatchHeader({ match, scorecard }) {
     battingTeam = batId === teamB?.id ? teamB : teamA;
     bowlingTeam = batId === teamB?.id ? teamA : teamB;
   } else {
-    // Innings not started — show the presumed first-batting side.
-    battingTeam =
-      match.toss_decision === "bowl"
-        ? tossWinnerId === teamA?.id
-          ? teamB
-          : teamA
-        : tossWinnerId === teamB?.id
-          ? teamB
-          : teamA;
+    // Innings not started — show the presumed first-batting side. The spec types
+    // toss_decision as a free string, so compare case-insensitively.
+    const tossChoseToBowl =
+      String(match.toss_decision ?? "").trim().toLowerCase() === "bowl";
+    battingTeam = tossChoseToBowl
+      ? tossWinnerId === teamA?.id
+        ? teamB
+        : teamA
+      : tossWinnerId === teamB?.id
+        ? teamB
+        : teamA;
     bowlingTeam = battingTeam === teamA ? teamB : teamA;
   }
 
@@ -45,7 +47,7 @@ export default function MatchHeader({ match, scorecard }) {
           to={`/matches/${match.id}`}
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-emerald-600 transition"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           Back
         </Link>
         <div className="flex items-center gap-2">
@@ -67,10 +69,10 @@ export default function MatchHeader({ match, scorecard }) {
                   : "bg-red-50 text-red-600 border-red-200 flex items-center gap-1"
               }`}
             >
-              {scorecard.completed && <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />}
+              {scorecard.completed && <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-gray-400" />}
               {scorecard.completed ? "Completed" : (
                 <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                  <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
                   Live
                 </>
               )}
@@ -125,13 +127,13 @@ export default function MatchHeader({ match, scorecard }) {
         <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-gray-400">
           {match.venue && (
             <span className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
+              <MapPin className="w-3 h-3" aria-hidden="true" />
               {match.venue}
             </span>
           )}
           {match.match_date && (
             <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3 h-3" aria-hidden="true" />
               {match.match_date}
             </span>
           )}

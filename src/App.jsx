@@ -1,25 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Routes,
-  Route,
   Link,
+  NavLink,
+  Route,
+  Routes,
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  UserCheck,
-  Calendar,
-  PlusCircle,
-  UserPlus,
-  Menu,
-  X,
-  LogOut,
-} from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import logo from "./images/logo.jpg";
 import { useAuth } from "./auth/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { ConfirmProvider } from "./components/ui";
+import { Avatar } from "./components/ui";
+import { cn } from "./utils/cn";
+import {
+  NAV_ITEMS,
+  QUICK_ACTIONS,
+  isAuthRoute,
+  isNavItemActive,
+  resolvePageMeta,
+} from "./config/navigation";
 import HomePage from "./pages/HomePage";
 import TeamsPage from "./pages/TeamsPage";
 import PlayersPage from "./pages/PlayersPage";
@@ -34,390 +35,389 @@ import ScoringPage from "./pages/ScoringPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/teams", label: "Teams", icon: Users },
-  { path: "/players", label: "Players", icon: UserCheck },
-  { path: "/matches", label: "Matches", icon: Calendar },
-];
+function Brand({ compact = false }) {
+  return (
+    <Link
+      to="/"
+      className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400"
+    >
+      <img
+        src={logo}
+        alt=""
+        className={cn(
+          "rounded-lg object-cover ring-1 ring-white/15",
+          compact ? "size-7" : "size-9",
+        )}
+      />
+      <span className="min-w-0">
+        <span className="block text-[15px] font-bold leading-tight tracking-tight text-white">
+          cricket
+        </span>
+        <span className="block text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-nav-ink-muted">
+          Pro League
+        </span>
+      </span>
+    </Link>
+  );
+}
 
-const quickActionItems = [
-  { path: "/teams/new", label: "Add Team", icon: PlusCircle },
-  { path: "/players/new", label: "Register Player", icon: UserPlus },
-  { path: "/matches/new", label: "Schedule Match", icon: Calendar },
-];
+function NavList({ pathname, onNavigate }) {
+  return (
+    <>
+      <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-nav-ink-muted">
+        Navigation
+      </p>
+      <ul className="space-y-1">
+        {NAV_ITEMS.map((item) => {
+          const active = isNavItemActive(pathname, item);
+          const Icon = item.icon;
+          return (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group flex items-center gap-3 rounded-lg py-2.5 pl-3 pr-3 text-sm font-medium",
+                  "transition-colors duration-150",
+                  active
+                    ? "bg-white/10 text-white"
+                    : "text-nav-ink-muted hover:bg-white/5 hover:text-nav-ink",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-5 w-1 shrink-0 rounded-full bg-brand-400 transition-opacity duration-150",
+                    active
+                      ? "opacity-100"
+                      : "opacity-0 group-hover:opacity-50",
+                  )}
+                />
+                <Icon
+                  className={cn(
+                    "size-4 shrink-0",
+                    active ? "text-brand-400" : "",
+                  )}
+                  aria-hidden="true"
+                />
+                {item.label}
+              </NavLink>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
-function SidebarContent({ isActive, onNavigate }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+function QuickActionList({ pathname, onNavigate }) {
+  return (
+    <>
+      <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-nav-ink-muted">
+        Quick Actions
+      </p>
+      <ul className="space-y-1">
+        {QUICK_ACTIONS.map((item) => {
+          const active = pathname === item.to;
+          const Icon = item.icon;
+          return (
+            <li key={item.to}>
+              <Link
+                to={item.to}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                  "transition-colors duration-150",
+                  active
+                    ? "bg-white/10 text-white"
+                    : "text-nav-ink-muted hover:bg-white/5 hover:text-nav-ink",
+                )}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
-  async function handleLogout() {
-    await logout();
-    onNavigate?.();
-    navigate("/login", { replace: true });
-  }
-
-  const displayName = user?.full_name || "User";
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+function SidebarBody({ pathname, onNavigate, onLogout }) {
+  const { user } = useAuth();
+  const name = user?.full_name || user?.email || "User";
 
   return (
-    <div className="flex flex-col h-full bg-[#9C513E] border-r border-[#b05c48]/40 text-[#fdf3ef]">
-      {/* Brand Header */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
-        <div >
-          <img
-            src={logo}
-            alt="Logo"
-            className="w-8 h-8 rounded-md object-cover"
-          />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white tracking-wider">
-            cricket
-          </h1>
-          <span className="text-xs text-[#f8dccb] font-semibold uppercase tracking-widest">
-            PRO LEAGUE
-          </span>
-        </div>
+    <div className="flex h-full flex-col bg-nav">
+      <div className="flex items-center px-5 py-5">
+        <Brand />
       </div>
 
-      {/* Main Navigation */}
-      <div className="flex-1 px-4 py-6 space-y-7 overflow-y-auto">
-        <div className="space-y-1.5">
-          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#f7dccf]/70">
-            Navigation
-          </p>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onNavigate}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  active
-                    ? "bg-white/10 text-white border-l-4 border-[#f8d7cb] shadow-sm"
-                    : "hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 ${active ? "text-[#fae1d5]" : "text-[#f7d8cb]/80"}`}
-                />
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
+      <nav
+        aria-label="Main"
+        className="flex-1 space-y-6 overflow-y-auto px-4 py-2"
+      >
+        <NavList pathname={pathname} onNavigate={onNavigate} />
+        <QuickActionList pathname={pathname} onNavigate={onNavigate} />
+      </nav>
 
-        <div className="space-y-1.5">
-          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#f7dccf]/70">
-            Quick Actions
-          </p>
-          {quickActionItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onNavigate}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  active
-                    ? "bg-white/10 text-white border-l-4 border-[#f8d7cb] shadow-sm"
-                    : "hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 ${active ? "text-[#fae1d5]" : "text-[#f7d8cb]/80"}`}
-                />
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Footer / User Profile */}
-      <div className="p-4 border-t border-white/10 bg-[#a8553f]/50 flex items-center gap-3">
-        {user?.profile_picture ? (
-          <img
-            src={user.profile_picture}
-            alt={displayName}
-            className="w-9 h-9 rounded-full object-cover border border-white/25"
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-[#fff3ee] font-bold">
-            {initials}
+      <div className="border-t border-nav-line p-3">
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+          <Avatar src={user?.profile_picture} name={name} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-white">
+              {name}
+            </p>
+            <p className="truncate text-xs text-nav-ink-muted">
+              {user?.email}
+            </p>
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">
-            {displayName}
-          </p>
-          <p className="text-xs text-[#f7dccf]/80 truncate">
-            {user?.email}
-          </p>
+          <button
+            type="button"
+            onClick={onLogout}
+            aria-label="Log out"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-nav-ink-muted transition hover:bg-white/10 hover:text-white"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          title="Log out"
-          className="p-2 rounded-lg text-[#f7d8cb] hover:bg-white/10 hover:text-white transition"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
 }
 
 function App() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { logout, isReady, isAuthenticated } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
-  // Helper to determine if a route is active
-  const isActive = (path) => {
-    if (path === "/") {
-      return location.pathname === "/";
-    }
-    return location.pathname.startsWith(path);
-  };
+  const showShell = !isAuthRoute(pathname);
 
-  const isPublicAuthPage =
-    location.pathname === "/login" || location.pathname === "/register";
+  useEffect(() => {
+    document.title = `${resolvePageMeta(pathname).title} · Cricket Pro League`;
+  }, [pathname]);
 
-  // Public auth pages render standalone, without the app shell.
-  if (isPublicAuthPage) {
+  // Close the drawer when the route changes (including browser back/forward).
+  // Adjusting during render is React's recommended pattern here; an effect would
+  // trigger a cascading render on every navigation.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    setDrawerOpen(false);
+  }
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const nodes = Array.from(
+        drawerRef.current?.querySelectorAll(
+          'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((node) => node.offsetParent !== null);
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      body.style.overflow = previousOverflow;
+    };
+  }, [drawerOpen]);
+
+  async function handleLogout() {
+    setDrawerOpen(false);
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
+  if (!showShell) {
     return (
-      <div className="min-h-screen bg-[#f7faf8] text-gray-800 font-sans">
+      <ConfirmProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>
-      </div>
+      </ConfirmProvider>
     );
   }
 
+  const guard = (element) => <ProtectedRoute>{element}</ProtectedRoute>;
+
   return (
-    <div className="min-h-screen bg-[#f7faf8] text-gray-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Top Navigation */}
-      <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#9C513E] border-b border-[#b05c48]">
-        <div className="flex items-center gap-2">
-          <img
-            src={logo}
-            alt="Logo"
-            className="w-6 h-6 rounded-md object-cover"
-          />
-          <span className="font-bold text-white tracking-wide">cricket</span>
-        </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="text-[#fdf3ef] hover:text-white p-1 rounded-md"
+    <ConfirmProvider>
+      <div className="min-h-dvh bg-canvas">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white"
         >
-          {mobileMenuOpen ? (
-            <X className="w-6 h-6" />
-          ) : (
-            <Menu className="w-6 h-6" />
-          )}
-        </button>
-      </header>
+          Skip to main content
+        </a>
 
-      {/* Desktop Sidebar (Persistent) */}
-      <aside className="hidden md:block w-64 shrink-0 h-screen sticky top-0">
-        <SidebarContent
-          isActive={isActive}
-          onNavigate={() => setMobileMenuOpen(false)}
-        />
-      </aside>
+        <div className="lg:flex">
+          <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 lg:block">
+            <SidebarBody
+              pathname={pathname}
+              onNavigate={() => setDrawerOpen(false)}
+              onLogout={handleLogout}
+            />
+          </aside>
 
-      {/* Mobile Menu Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-[#4f2a20]/60 backdrop-blur-sm"
-            onClick={() => setMobileMenuOpen(false)}
-          ></div>
-          {/* Sidebar Panel */}
-          <div className="relative w-64 max-w-xs flex-1 flex flex-col h-full bg-[#9C513E]">
-            <div className="absolute top-0 right-0 p-4">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md lg:hidden">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label="Open navigation menu"
+                  aria-expanded={drawerOpen}
+                  aria-controls="app-drawer"
+                  className="-ml-2 flex size-11 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+                >
+                  <Menu className="size-5" aria-hidden="true" />
+                </button>
+
+                <Brand compact />
+              </div>
+            </header>
+
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-10"
+            >
+              <div className="mx-auto w-full max-w-7xl">
+                <Routes>
+                  <Route path="/" element={guard(<HomePage />)} />
+                  <Route path="/teams" element={guard(<TeamsPage />)} />
+                  <Route path="/players" element={guard(<PlayersPage />)} />
+                  <Route path="/matches" element={guard(<MatchesPage />)} />
+                  <Route path="/teams/new" element={guard(<AddTeamPage />)} />
+                  <Route
+                    path="/teams/:teamId/edit"
+                    element={guard(<AddTeamPage />)}
+                  />
+                  <Route
+                    path="/teams/:teamId"
+                    element={guard(<TeamDetailPage />)}
+                  />
+                  <Route path="/players/new" element={guard(<AddPlayerPage />)} />
+                  <Route
+                    path="/players/:playerId/edit"
+                    element={guard(<EditPlayerPage />)}
+                  />
+                  <Route path="/matches/new" element={guard(<AddMatchPage />)} />
+                  <Route
+                    path="/matches/:matchId"
+                    element={guard(<MatchDetailPage />)}
+                  />
+                  <Route
+                    path="/matches/:matchId/score"
+                    element={guard(<ScoringPage />)}
+                  />
+                  <Route
+                    path="*"
+                    element={
+                      <div className="py-20 text-center">
+                        <p className="text-lg font-semibold text-ink">
+                          Page not found
+                        </p>
+                        <p className="mt-1 text-sm text-ink-subtle">
+                          The page you are looking for does not exist.
+                        </p>
+                        <Link
+                          to="/"
+                          className="mt-5 inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+                        >
+                          Back to dashboard
+                        </Link>
+                      </div>
+                    }
+                  />
+                </Routes>
+              </div>
+            </main>
+          </div>
+        </div>
+
+        {drawerOpen && (
+          <div className="fixed inset-0 z-[100] lg:hidden">
+            <div
+              className="absolute inset-0 animate-fade-in bg-ink/50 backdrop-blur-[2px]"
+              onClick={() => setDrawerOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              id="app-drawer"
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation"
+              className="relative flex h-full w-72 max-w-[85vw] flex-col animate-slide-in-right bg-nav shadow-modal"
+            >
               <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-[#f7d8cb] hover:text-white p-1"
+                ref={closeButtonRef}
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close navigation menu"
+                className="absolute right-2 top-3 flex size-11 items-center justify-center rounded-lg text-nav-ink-muted transition hover:bg-white/10 hover:text-white"
               >
-                <X className="w-6 h-6" />
+                <X className="size-5" aria-hidden="true" />
               </button>
+              <SidebarBody
+                pathname={pathname}
+                onNavigate={() => setDrawerOpen(false)}
+                onLogout={handleLogout}
+              />
             </div>
-            <SidebarContent
-              isActive={isActive}
-              onNavigate={() => setMobileMenuOpen(false)}
-            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0">
-        {/* Header Bar */}
-        <header className="hidden md:flex items-center justify-between px-8 py-5 border-b border-cricket-border bg-white/80 backdrop-blur-md">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {isActive("/") && "Dashboard Overview"}
-              {isActive("/teams/new") && "Register New Team"}
-              {location.pathname.match(/^\/teams\/\d+\/edit$/) && "Edit Team"}
-              {isActive("/teams") &&
-                !isActive("/teams/new") &&
-                !location.pathname.match(/^\/teams\/\d+\/edit$/) &&
-                "Teams Directory"}
-              {isActive("/players/new") && "Register New Player"}
-              {location.pathname.match(/^\/players\/\d+\/edit$/) &&
-                "Edit Player"}
-              {isActive("/players") &&
-                !isActive("/players/new") &&
-                !location.pathname.match(/^\/players\/\d+\/edit$/) &&
-                "Players Directory"}
-              {isActive("/matches") &&
-                !isActive("/matches/new") &&
-                "Matches & Schedule"}
-              {isActive("/matches/new") && "Schedule Match"}
-              {isActive("/matches") && location.pathname.includes("/score") && "Live Scoring"}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Manage teams, players, schedules and scores in real-time.
-            </p>
+        {!isReady && (
+          <div
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-canvas px-4 py-1 text-center text-xs text-ink-subtle"
+            aria-live="polite"
+          >
+            Restoring your session…
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-cricket-border">
-              Season: <strong className="text-emerald-600">2026</strong>
-            </span>
-          </div>
-        </header>
+        )}
 
-        {/* Dynamic Pages Area */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full mx-auto">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <HomePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teams"
-              element={
-                <ProtectedRoute>
-                  <TeamsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/players"
-              element={
-                <ProtectedRoute>
-                  <PlayersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/matches"
-              element={
-                <ProtectedRoute>
-                  <MatchesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teams/new"
-              element={
-                <ProtectedRoute>
-                  <AddTeamPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teams/:teamId/edit"
-              element={
-                <ProtectedRoute>
-                  <AddTeamPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/players/new"
-              element={
-                <ProtectedRoute>
-                  <AddPlayerPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/players/:playerId/edit"
-              element={
-                <ProtectedRoute>
-                  <EditPlayerPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/matches/new"
-              element={
-                <ProtectedRoute>
-                  <AddMatchPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teams/:teamId"
-              element={
-                <ProtectedRoute>
-                  <TeamDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/matches/:matchId"
-              element={
-                <ProtectedRoute>
-                  <MatchDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/matches/:matchId/score"
-              element={
-                <ProtectedRoute>
-                  <ScoringPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="*"
-              element={
-                <ProtectedRoute>
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 text-lg">Page not found.</p>
-                    <Link
-                      to="/"
-                      className="text-emerald-600 hover:underline mt-2 inline-block"
-                    >
-                      Return to Dashboard
-                    </Link>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </div>
-      </main>
-    </div>
+        {!isAuthenticated && isReady && (
+          <div
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 bg-canvas px-4 py-1 text-center text-xs text-ink-subtle"
+            aria-live="polite"
+          >
+            Session expired — redirecting to sign in…
+          </div>
+        )}
+      </div>
+    </ConfirmProvider>
   );
 }
 

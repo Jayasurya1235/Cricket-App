@@ -22,7 +22,11 @@ export default function ScoringControls({
   onOpenWicket,
   onOpenScorecard,
   isProcessing,
+  canScore = true,
+  blockedReason = null,
 }) {
+  const disabled = isProcessing || !canScore;
+
   return (
     <div className="bg-white border border-cricket-border rounded-2xl overflow-hidden shadow-sm">
       <div className="px-4 py-3 border-b border-cricket-border/50">
@@ -32,12 +36,22 @@ export default function ScoringControls({
       </div>
 
       <div className="p-4 space-y-3">
+        {blockedReason && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-center">
+            <p className="text-[11px] font-bold text-amber-800">
+              {blockedReason}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-6 gap-2">
           {PRIMARY_BUTTONS.map((btn) => (
             <button
               key={btn.runs}
+              type="button"
               onClick={() => onRecordRuns(btn.runs)}
-              disabled={isProcessing}
+              disabled={disabled}
+              aria-label={`Add ${btn.label} run${btn.label === "1" ? "" : "s"}`}
               className={`relative h-14 sm:h-16 rounded-xl border-2 font-black text-lg sm:text-xl transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${btn.color}`}
             >
               {btn.label}
@@ -49,8 +63,9 @@ export default function ScoringControls({
           {EXTRA_BUTTONS.map((btn) => (
             <button
               key={btn.type}
+              type="button"
               onClick={() => onOpenExtras(btn.type)}
-              disabled={isProcessing}
+              disabled={disabled}
               className={`h-11 sm:h-12 rounded-xl border-2 text-xs sm:text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${btn.color}`}
             >
               {btn.label}
@@ -60,19 +75,21 @@ export default function ScoringControls({
 
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
             onClick={onOpenWicket}
-            disabled={isProcessing}
+            disabled={disabled}
             className="h-12 sm:h-14 rounded-xl border-2 bg-red-50 hover:bg-red-100 text-red-600 border-red-200 active:bg-red-200 font-bold text-sm transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <span className="w-2 h-2 bg-red-500 rounded-full" />
+            <span className="w-2 h-2 bg-red-500 rounded-full" aria-hidden="true" />
             Wicket
           </button>
           <button
+            type="button"
             onClick={onOpenScorecard}
             disabled={isProcessing}
             className="h-12 sm:h-14 rounded-xl border-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200 active:bg-gray-200 font-bold text-sm transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <BookOpen className="w-4 h-4" />
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
             Scorecard
           </button>
         </div>

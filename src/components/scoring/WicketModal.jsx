@@ -1,26 +1,50 @@
-import { useState } from "react";
-import { X, UserMinus } from "lucide-react";
+import { useId, useState } from "react";
+import { UserMinus } from "lucide-react";
+import Modal from "../ui/Modal";
+import Button from "../ui/Button";
+import { cn } from "../../utils/cn";
+import { displayName } from "../../utils/scoring";
 
 const WICKET_TYPES = [
-  { value: "bowled", label: "Bowled", icon: "🎳" },
-  { value: "caught", label: "Caught", icon: "🤲" },
-  { value: "lbw", label: "LBW", icon: "🦵" },
-  { value: "run_out", label: "Run Out", icon: "🏃" },
-  { value: "stumped", label: "Stumped", icon: "🧤" },
-  { value: "hit_wicket", label: "Hit Wicket", icon: "💥" },
+  { value: "bowled", label: "Bowled", icon: "\u{1F3B3}" },
+  { value: "caught", label: "Caught", icon: "\u{1F932}" },
+  { value: "lbw", label: "LBW", icon: "\u{1F9B5}" },
+  { value: "run_out", label: "Run Out", icon: "\u{1F3C3}" },
+  { value: "stumped", label: "Stumped", icon: "\u{1F9E4}" },
+  { value: "hit_wicket", label: "Hit Wicket", icon: "\u{1F4A5}" },
 ];
 
-function nameOf(map, id) {
-  const p = map?.[id];
-  if (!p) return `Player #${id}`;
-  return `${p.first_name || ""} ${p.last_name || ""}`.trim() || `Player #${id}`;
+function PickerGroup({ label, children }) {
+  const labelId = useId();
+  return (
+    <div role="radiogroup" aria-labelledby={labelId}>
+      <p
+        id={labelId}
+        className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-subtle"
+      >
+        {label}
+      </p>
+      <div className="grid grid-cols-2 gap-2">{children}</div>
+    </div>
+  );
 }
 
-export default function WicketModal({ scorecard, nameMap, onConfirm, onClose, isProcessing }) {
+const PICKER_BASE =
+  "rounded-card border-2 p-3 text-left transition-all duration-150 active:scale-[0.98] " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+const PICKER_IDLE = "border-line bg-surface-muted hover:border-line-strong hover:bg-surface-sunken";
+const PICKER_ACTIVE = "border-brand-500 bg-brand-50 shadow-sm";
+
+export default function WicketModal({
+  open,
+  scorecard,
+  nameMap,
+  onConfirm,
+  onClose,
+  isProcessing,
+}) {
   const [wicketType, setWicketType] = useState("");
-  const [dismissedId, setDismissedId] = useState(
-    scorecard?.striker_id ?? "",
-  );
+  const [dismissedId, setDismissedId] = useState(scorecard?.striker_id ?? "");
 
   if (!scorecard) return null;
 
@@ -30,6 +54,7 @@ export default function WicketModal({ scorecard, nameMap, onConfirm, onClose, is
   const nonStriker = scorecard.batsmen?.find(
     (b) => b.player_id === scorecard.non_striker_id,
   );
+  const atCrease = [striker, nonStriker].filter(Boolean);
 
   function handleSubmit() {
     if (!wicketType || !dismissedId) return;
@@ -39,107 +64,84 @@ export default function WicketModal({ scorecard, nameMap, onConfirm, onClose, is
     });
   }
 
+  const submitDisabled = !wicketType || !dismissedId || isProcessing;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-[slideUp_0.25s_ease-out]">
-        <div className="sticky top-0 bg-white border-b border-cricket-border/50 px-5 py-4 flex items-center justify-between rounded-t-3xl sm:rounded-t-2xl z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-              <UserMinus className="w-4 h-4 text-red-600" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">Wicket</h2>
-              <p className="text-[11px] text-gray-400">
-                Who is out and how?
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
-          >
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Wicket"
+      description="Who is out and how?"
+      size="sm"
+      footer={
+        <Button
+          variant="danger"
+          size="lg"
+          fullWidth
+          onClick={handleSubmit}
+          disabled={submitDisabled}
+          loading={isProcessing}
+        >
+          {!isProcessing && <UserMinus className="size-4" aria-hidden="true" />}
+          Record Wicket
+        </Button>
+      }
+    >
+      <div className="space-y-5">
+        <PickerGroup label="Dismissed Player">
+          {atCrease.map((b) => {
+            const isActive = dismissedId === b.player_id;
+            return (
+              <button
+                key={b.player_id}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => setDismissedId(b.player_id)}
+                className={cn(PICKER_BASE, isActive ? PICKER_ACTIVE : PICKER_IDLE)}
+              >
+                <p className="text-[10px] font-bold uppercase text-ink-faint">
+                  {b.player_id === scorecard.striker_id ? "On Strike" : "Non-Striker"}
+                </p>
+                <p className="mt-0.5 truncate text-sm font-bold text-ink">
+                  {displayName(nameMap, b.player_id)}
+                </p>
+                <p className="text-[11px] tabular-nums text-ink-muted">
+                  {b.runs} ({b.balls_faced})
+                </p>
+              </button>
+            );
+          })}
+        </PickerGroup>
 
-        <div className="p-5 space-y-5">
-          <div>
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2.5">
-              Dismissed Player
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {[striker, nonStriker].filter(Boolean).map((b) => (
-                <button
-                  key={b.player_id}
-                  onClick={() => setDismissedId(b.player_id)}
-                  className={`p-3 rounded-xl border-2 text-left transition-all duration-150 ${
-                    dismissedId === b.player_id
-                      ? "border-red-500 bg-red-50 shadow-sm"
-                      : "border-gray-100 bg-gray-50 hover:border-gray-200"
-                  }`}
+        <PickerGroup label="How was the batsman dismissed?">
+          {WICKET_TYPES.map((wt) => {
+            const isActive = wicketType === wt.value;
+            return (
+              <button
+                key={wt.value}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => setWicketType(wt.value)}
+                className={cn(PICKER_BASE, isActive ? PICKER_ACTIVE : PICKER_IDLE)}
+              >
+                <span className="text-lg" aria-hidden="true">
+                  {wt.icon}
+                </span>
+                <p
+                  className={cn(
+                    "mt-1 text-xs font-bold",
+                    isActive ? "text-brand-700" : "text-ink-muted",
+                  )}
                 >
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">
-                    {b.player_id === scorecard.striker_id ? "On Strike" : "Non-Striker"}
-                  </p>
-                  <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">
-                    {nameOf(nameMap, b.player_id)}
-                  </p>
-                  <p className="text-[11px] text-gray-500 tabular-nums">
-                    {b.runs} ({b.balls_faced})
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2.5">
-              How was the batsman dismissed?
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {WICKET_TYPES.map((wt) => (
-                <button
-                  key={wt.value}
-                  onClick={() => setWicketType(wt.value)}
-                  className={`p-3 rounded-xl border-2 text-left transition-all duration-150 active:scale-[0.98] ${
-                    wicketType === wt.value
-                      ? "border-red-500 bg-red-50 shadow-sm"
-                      : "border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-gray-100"
-                  }`}
-                >
-                  <span className="text-lg">{wt.icon}</span>
-                  <p
-                    className={`text-xs font-bold mt-1 ${
-                      wicketType === wt.value ? "text-red-700" : "text-gray-700"
-                    }`}
-                  >
-                    {wt.label}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            disabled={!wicketType || !dismissedId || isProcessing}
-            className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isProcessing ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <UserMinus className="w-4 h-4" />
-                Record Wicket
-              </>
-            )}
-          </button>
-        </div>
+                  {wt.label}
+                </p>
+              </button>
+            );
+          })}
+        </PickerGroup>
       </div>
-    </div>
+    </Modal>
   );
 }
