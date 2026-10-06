@@ -30,6 +30,7 @@ import AddPlayerPage from "./pages/AddPlayerPage";
 import EditPlayerPage from "./pages/EditPlayerPage";
 import MatchesPage from "./pages/MatchesPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
+import MatchSummaryPage from "./pages/MatchSummaryPage";
 import AddMatchPage from "./pages/AddMatchPage";
 import ScoringPage from "./pages/ScoringPage";
 import LoginPage from "./pages/LoginPage";
@@ -336,6 +337,10 @@ function App() {
                   <Route
                     path="/matches/:matchId"
                     element={guard(<MatchDetailPage />)}
+                  />
+                  <Route
+                    path="/matches/:matchId/summary"
+                    element={guard(<MatchSummaryPage />)}
                   />
                   <Route
                     path="/matches/:matchId/score"

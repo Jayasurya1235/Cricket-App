@@ -12,6 +12,7 @@ import { useMatch } from "../hooks/useMatch";
 import { useTeams } from "../hooks/useTeams";
 import { getMatchStatus } from "../api/matchSchema";
 import { extractErrorMessage } from "../api/client";
+import { resolveMatchTeam, teamLogo } from "../utils/teams";
 import {
   Badge,
   Button,
@@ -54,7 +55,7 @@ function CompetingTeam({ team, isTossWinner, tossDecision }) {
         <TeamBadge
           name={team.name}
           shortName={team.short_name}
-          src={team.logo ?? team.logo_url}
+          src={teamLogo(team)}
           size="md"
         />
         <div className="min-w-0">
@@ -116,17 +117,28 @@ function MatchDetailPage() {
     );
   }
 
-  // The backend response embeds team_a/team_b/toss_winner; fall back to the
-  // local teams list for older/partial payloads.
-  const team1 =
-    match.team_a ||
-    teams?.find((team) => team.id === match.team_a_id || team.id === match.team1_id);
-  const team2 =
-    match.team_b ||
-    teams?.find((team) => team.id === match.team_b_id || team.id === match.team2_id);
-  const tossWinner =
-    match.toss_winner ||
-    teams?.find((team) => team.id === Number(match.toss_winner_id));
+  // The backend embeds team_a/team_b/toss_winner as { id, name, short_name }
+  // with no logo; join against the teams list so the crest shows here too.
+  const team1 = resolveMatchTeam(
+    match,
+    match.team_a,
+    teams,
+    "team_a_id",
+    "team1_id",
+  );
+  const team2 = resolveMatchTeam(
+    match,
+    match.team_b,
+    teams,
+    "team_b_id",
+    "team2_id",
+  );
+  const tossWinner = resolveMatchTeam(
+    match,
+    match.toss_winner,
+    teams,
+    "toss_winner_id",
+  );
 
   const status = getMatchStatus(match);
 
@@ -151,10 +163,18 @@ function MatchDetailPage() {
           </Badge>
         }
         actions={
-          <Button as={Link} to={`/matches/${match.id}/score`}>
-            <Play className="size-4" aria-hidden="true" />
-            {status === "Completed" ? "Open scorecard" : "Score this match"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {status === "Completed" && (
+              <Button as={Link} to={`/matches/${match.id}/summary`} variant="secondary">
+                <Trophy className="size-4" aria-hidden="true" />
+                Match summary
+              </Button>
+            )}
+            <Button as={Link} to={`/matches/${match.id}/score`}>
+              <Play className="size-4" aria-hidden="true" />
+              {status === "Completed" ? "Open scorecard" : "Score this match"}
+            </Button>
+          </div>
         }
       />
 

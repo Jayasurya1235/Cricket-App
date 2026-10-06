@@ -20,6 +20,13 @@ export default defineConfig({
         // /api/locations, /api/country-codes and /api/verify-otp do not.
         rewrite: (path) => path.replace(/^\/api/, "/v1"),
       },
+      // Uploaded files are stored as root-relative paths — TeamLogoResponse.logo
+      // is documented as "/uploads/teams/17.png" — and are served by the
+      // backend host, not under /v1. Proxy them separately, with no rewrite.
+      "/uploads": {
+        target: "https://cricketapp.in",
+        changeOrigin: true,
+      },
     },
   },
 });

@@ -1,38 +1,43 @@
 import { ArrowLeft, MapPin, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
+import { TeamBadge } from "../ui";
+import { teamLogo } from "../../utils/teams";
 
 const MATCH_FORMAT_BADGES = {
-  Test: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  ODI: "bg-blue-100 text-blue-700 border-blue-200",
-  T20: "bg-purple-100 text-purple-700 border-purple-200",
+  Test: "bg-indigo-100 text-indigo-700 border-indigo-300",
+  ODI: "bg-blue-100 text-blue-700 border-blue-300",
+  T20: "bg-purple-100 text-purple-700 border-purple-300",
 };
 
-export default function MatchHeader({ match, scorecard }) {
+export default function MatchHeader({ match, scorecard, teamA, teamB }) {
   if (!match) return null;
 
-  const teamA = match.team_a;
-  const teamB = match.team_b;
+  // The match payload only embeds { id, name, short_name } per side. ScoringPage
+  // passes the merged full records (with logo); fall back to the embedded copy
+  // when it is used on its own.
+  const sideA = teamA ?? match.team_a;
+  const sideB = teamB ?? match.team_b;
   const tossWinnerId = match.toss_winner_id;
 
   let battingTeam;
   let bowlingTeam;
   if (scorecard) {
     const batId = scorecard.batting_team_id;
-    battingTeam = batId === teamB?.id ? teamB : teamA;
-    bowlingTeam = batId === teamB?.id ? teamA : teamB;
+    battingTeam = batId === sideB?.id ? sideB : sideA;
+    bowlingTeam = batId === sideB?.id ? sideA : sideB;
   } else {
     // Innings not started — show the presumed first-batting side. The spec types
     // toss_decision as a free string, so compare case-insensitively.
     const tossChoseToBowl =
       String(match.toss_decision ?? "").trim().toLowerCase() === "bowl";
     battingTeam = tossChoseToBowl
-      ? tossWinnerId === teamA?.id
-        ? teamB
-        : teamA
-      : tossWinnerId === teamB?.id
-        ? teamB
-        : teamA;
-    bowlingTeam = battingTeam === teamA ? teamB : teamA;
+      ? tossWinnerId === sideA?.id
+        ? sideB
+        : sideA
+      : tossWinnerId === sideB?.id
+        ? sideB
+        : sideA;
+    bowlingTeam = battingTeam === sideA ? sideB : sideA;
   }
 
   const total = scorecard?.total ?? 0;
@@ -89,6 +94,16 @@ export default function MatchHeader({ match, scorecard }) {
       <div className="px-4 py-5 sm:px-6 sm:py-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-center">
+            {battingTeam && (
+              <div className="mb-2 flex justify-center">
+                <TeamBadge
+                  name={battingTeam.name}
+                  shortName={battingTeam.short_name}
+                  src={teamLogo(battingTeam)}
+                  size="sm"
+                />
+              </div>
+            )}
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
               Batting
             </p>
@@ -112,6 +127,16 @@ export default function MatchHeader({ match, scorecard }) {
           </div>
 
           <div className="flex-1 text-center">
+            {bowlingTeam && (
+              <div className="mb-2 flex justify-center">
+                <TeamBadge
+                  name={bowlingTeam.name}
+                  shortName={bowlingTeam.short_name}
+                  src={teamLogo(bowlingTeam)}
+                  size="sm"
+                />
+              </div>
+            )}
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
               Bowling
             </p>

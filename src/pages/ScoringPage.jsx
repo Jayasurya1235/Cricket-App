@@ -9,6 +9,7 @@ import {
   useAddBatsman,
 } from "../hooks/useScoring";
 import { extractErrorMessage } from "../api/client";
+import { mergeTeam } from "../utils/teams";
 import MatchHeader from "../components/scoring/MatchHeader";
 import ScoreSummary from "../components/scoring/ScoreSummary";
 import BatsmenPanel from "../components/scoring/BatsmenPanel";
@@ -40,7 +41,16 @@ const MAX_LOG_ENTRIES = 60;
 // and bench players are deliberately excluded here. A previous version also
 // accepted a `team.players` array, which the API never returns.
 function rosterOf(team) {
-  return Array.isArray(team?.playing_11) ? team.playing_11 : [];
+  if (!team) return [];
+  // Combine all squad members - playing XI, substitutes, bench etc.
+  if (Array.isArray(team.players) && team.players.length > 0) {
+    return team.players;
+  }
+  const combined = [];
+  if (Array.isArray(team.playing_11)) combined.push(...team.playing_11);
+  if (Array.isArray(team.substitutes)) combined.push(...team.substitutes);
+  if (Array.isArray(team.bench)) combined.push(...team.bench);
+  return combined;
 }
 
 function playersById(...rosters) {
@@ -147,8 +157,11 @@ export default function ScoringPage() {
     );
   }
 
-  const teamAInfo = match.team_a;
-  const teamBInfo = match.team_b;
+  // The match payload only embeds { id, name, short_name } per side, with no
+  // logo. useTeam() above returns the full record, so merge it in — every
+  // team label on this screen then carries the uploaded crest.
+  const teamAInfo = mergeTeam(match.team_a, teamA);
+  const teamBInfo = mergeTeam(match.team_b, teamB);
   const tossWinnerId = match.toss_winner_id;
 
   // First-innings batting side (used until the backend starts an innings).
@@ -374,7 +387,7 @@ export default function ScoringPage() {
   if (!scorecard) {
     return (
       <div className="space-y-4 max-w-2xl mx-auto">
-        <MatchHeader match={match} scorecard={null} />
+        <MatchHeader match={match} scorecard={null} teamA={teamAInfo} teamB={teamBInfo} />
         <div className="bg-white border border-cricket-border rounded-2xl p-10 text-center shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
             <Play className="w-6 h-6 text-emerald-600" />
@@ -475,7 +488,7 @@ export default function ScoringPage() {
         {liveScoreMessage}
       </p>
 
-      <MatchHeader match={match} scorecard={scorecard} />
+      <MatchHeader match={match} scorecard={scorecard} teamA={teamAInfo} teamB={teamBInfo} />
 
       <ScoreSummary
         scorecard={scorecard}

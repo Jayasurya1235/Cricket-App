@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  AlertCircle,
+  Camera,
   CheckCircle2,
+  Loader2,
   Mail,
   MapPin,
   Phone,
@@ -18,10 +21,12 @@ import { useDeleteTeam } from "../hooks/useDeleteTeam";
 import { useAddPlayerToTeam } from "../hooks/useAddPlayerToTeam";
 import { useRemovePlayerFromTeam } from "../hooks/useRemovePlayerFromTeam";
 import { useAssignPlayerToTeam } from "../hooks/useAssignPlayerToTeam";
+import { useUploadTeamLogo } from "../hooks/useUploadTeamLogo";
 import { usePlayers } from "../hooks/usePlayers";
 import { useLevels } from "../hooks/useLevels";
 import { useCountryCodes } from "../hooks/useCountryCodes";
 import { extractErrorMessage } from "../api/client";
+import { teamLogo } from "../utils/teams";
 import {
   Avatar,
   Badge,
@@ -52,6 +57,8 @@ const SQUAD_GROUPS = [
   { key: "substitutes", label: "Substitutes" },
   { key: "bench", label: "Bench" },
 ];
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
 function ProfileRow({ icon: Icon, label, value }) {
   if (!value) return null;
@@ -117,7 +124,8 @@ function RosterMemberCard({ player, onRemove }) {
 function TeamDetailPage() {
   const { teamId } = useParams();
   const navigate = useNavigate();
-  const { confirm } = useConfirm();
+  // useConfirm() returns the confirm function itself, not { confirm }.
+  const confirm = useConfirm();
 
   const { data: team, isLoading, isError, error, refetch } = useTeam(teamId);
   const { data: players, isLoading: playersLoading } = usePlayers();
@@ -128,6 +136,10 @@ function TeamDetailPage() {
   const addPlayer = useAddPlayerToTeam(teamId);
   const removePlayer = useRemovePlayerFromTeam(teamId);
   const assignPlayer = useAssignPlayerToTeam();
+  const uploadLogo = useUploadTeamLogo();
+
+  const logoInputRef = useRef(null);
+  const [logoError, setLogoError] = useState("");
 
   const [countryCode, setCountryCode] = useState("+91");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -193,6 +205,32 @@ function TeamDetailPage() {
       onSuccess: () => navigate("/teams", { replace: true }),
       onError: (err) => setActionError(extractErrorMessage(err)),
     });
+  }
+
+  async function handleLogoChange(event) {
+    const file = event.target.files?.[0];
+    // Reset immediately so picking the same file again still fires onChange.
+    event.target.value = "";
+    if (!file) return;
+
+    setLogoError("");
+    if (!file.type.startsWith("image/")) {
+      setLogoError("Please choose an image file (JPG, PNG, or WebP).");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError("Image file is too large. Maximum size is 5 MB.");
+      return;
+    }
+
+    try {
+      // POST /teams/{id}/upload-logo writes the new crest for a team that
+      // already exists; the mutation pushes the returned path into the cache,
+      // so the badge swaps as soon as this resolves.
+      await uploadLogo.mutateAsync({ id: team.id, file });
+    } catch (err) {
+      setLogoError(extractErrorMessage(err));
+    }
   }
 
   async function handleRemovePlayer(player) {
@@ -286,7 +324,7 @@ function TeamDetailPage() {
     );
   }
 
-  const image = team.logo || team.logo_url;
+  const image = teamLogo(team);
   const isFlatRoster = roster.some((player) => player.squad_group === null);
   const groupedRoster = SQUAD_GROUPS.map((group) => ({
     group,
@@ -329,12 +367,38 @@ function TeamDetailPage() {
         <div className="space-y-6">
           <Card className="p-5">
             <div className="flex items-center gap-3">
-              <TeamBadge
-                name={team.name}
-                shortName={team.short_name}
-                src={image}
-                size="lg"
-              />
+              <span className="relative inline-flex shrink-0">
+                <TeamBadge
+                  name={team.name}
+                  shortName={team.short_name}
+                  src={image}
+                  size="lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadLogo.isPending}
+                  title="Upload a new team logo"
+                  aria-label="Upload a new team logo"
+                  className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-brand-600 text-white shadow-card transition hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {uploadLogo.isPending ? (
+                    <Loader2
+                      className="size-3.5 animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Camera className="size-3.5" aria-hidden="true" />
+                  )}
+                </button>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleLogoChange}
+                />
+              </span>
               <div className="min-w-0">
                 <p className="truncate text-[15px] font-semibold text-ink">
                   {team.name}
@@ -344,6 +408,21 @@ function TeamDetailPage() {
                 </p>
               </div>
             </div>
+
+            {logoError ? (
+              <p
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-card border border-danger-200 bg-danger-50 px-3 py-2 text-[13px] text-danger-800"
+              >
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                {logoError}
+              </p>
+            ) : (
+              <p className="mt-3 text-[11px] text-ink-faint">
+                Click the camera on the crest to change the logo · JPG, PNG or
+                WebP up to 5 MB.
+              </p>
+            )}
 
             <dl className="mt-5 space-y-3.5 border-t border-line pt-4">
               <ProfileRow

@@ -46,7 +46,8 @@ function DetailRow({ icon, label, value }) {
 function PlayerCard({ player }) {
   const navigate = useNavigate();
   const deletePlayer = useDeletePlayer();
-  const { confirm } = useConfirm();
+  // useConfirm() returns the confirm function itself, not { confirm }.
+  const confirm = useConfirm();
   const [error, setError] = useState("");
 
   const name = `${player.first_name ?? ""} ${player.last_name ?? ""}`.trim();

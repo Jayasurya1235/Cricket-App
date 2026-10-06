@@ -8,6 +8,7 @@ import { useCreateTeam } from "../hooks/useCreateTeam";
 import { useUpdateTeam } from "../hooks/useUpdateTeam";
 import { useUploadTeamLogo } from "../hooks/useUploadTeamLogo";
 import { extractErrorMessage } from "../api/client";
+import { teamLogo } from "../utils/teams";
 import {
   Button,
   Card,
@@ -63,7 +64,14 @@ function TeamForm({ team, isEdit, teamId }) {
   const logoInputRef = useRef(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(team?.logo || "");
+  // teamLogo() resolves the root-relative path the backend stores, so the
+  // saved crest loads the same way it does on the team card.
+  const [logoPreview, setLogoPreview] = useState(() => teamLogo(team) || "");
+  // The URL whose preview failed to load, so a later upload or a fixed path
+  // is still attempted instead of staying hidden behind a stale flag.
+  const [failedPreview, setFailedPreview] = useState(null);
+  if (failedPreview && failedPreview !== logoPreview) setFailedPreview(null);
+  const showPreview = Boolean(logoPreview) && failedPreview !== logoPreview;
 
   const blobRef = useRef(null);
 
@@ -363,8 +371,13 @@ function TeamForm({ team, isEdit, teamId }) {
           >
             <div className="flex items-center gap-4">
               <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-muted">
-                {logoPreview ? (
-                  <img src={logoPreview} alt="Team logo preview" className="size-full object-cover" />
+                {showPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Team logo preview"
+                    onError={() => setFailedPreview(logoPreview)}
+                    className="size-full object-cover"
+                  />
                 ) : (
                   <Shield className="size-7 text-ink-faint" aria-hidden="true" />
                 )}

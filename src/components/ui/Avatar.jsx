@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "../../utils/cn";
+import { resolveAssetUrl } from "../../utils/assetUrl";
 
 const SIZES = {
   xs: "size-7 text-[10px]",
@@ -36,8 +37,13 @@ function Avatar({
   className,
   ring = false,
 }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
+  // Stored as a root-relative upload path, so re-base it before use.
+  const resolved = resolveAssetUrl(src);
+  // Track the URL that failed rather than a bare flag: a new image (an upload
+  // or an edit) must be attempted even if an earlier one 404'd.
+  const [failedSrc, setFailedSrc] = useState(null);
+  if (failedSrc && failedSrc !== resolved) setFailedSrc(null);
+  const showImage = Boolean(resolved) && failedSrc !== resolved;
 
   return (
     <span
@@ -52,11 +58,11 @@ function Avatar({
     >
       {showImage ? (
         <img
-          src={src}
+          src={resolved}
           alt={name || undefined}
           loading="lazy"
           decoding="async"
-          onError={() => setFailed(true)}
+          onError={() => setFailedSrc(resolved)}
           className="size-full object-cover"
         />
       ) : (
@@ -69,7 +75,9 @@ function Avatar({
 }
 
 function TeamBadge({ src, name, shortName, size = "lg", className }) {
-  const [failed, setFailed] = useState(false);
+  const resolved = resolveAssetUrl(src);
+  const [failedSrc, setFailedSrc] = useState(null);
+  if (failedSrc && failedSrc !== resolved) setFailedSrc(null);
   const initials = (shortName || name || "?").slice(0, 3).toUpperCase();
 
   return (
@@ -82,13 +90,13 @@ function TeamBadge({ src, name, shortName, size = "lg", className }) {
         className,
       )}
     >
-      {src && !failed ? (
+      {resolved && failedSrc !== resolved ? (
         <img
-          src={src}
+          src={resolved}
           alt={`${name ?? "Team"} logo`}
           loading="lazy"
           decoding="async"
-          onError={() => setFailed(true)}
+          onError={() => setFailedSrc(resolved)}
           className="size-full object-cover"
         />
       ) : (

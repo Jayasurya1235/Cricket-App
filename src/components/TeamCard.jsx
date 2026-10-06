@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, MapPin, Pencil, Trash2, Users } from "lucide-react";
 import { useDeleteTeam } from "../hooks/useDeleteTeam";
 import { extractErrorMessage } from "../api/client";
+import { teamLogo } from "../utils/teams";
 import { TeamBadge, useConfirm } from "./ui";
 
 function playerCount(team) {
@@ -19,11 +20,17 @@ function playerCount(team) {
 function TeamCard({ team }) {
   const navigate = useNavigate();
   const deleteTeam = useDeleteTeam();
-  const { confirm } = useConfirm();
+  // useConfirm() returns the confirm function itself, not { confirm }.
+  const confirm = useConfirm();
   const [error, setError] = useState("");
-
-  const image = team.logo || team.logo_url || null;
+  const image = teamLogo(team);
   const count = playerCount(team);
+  // The URL whose banner image failed to load. Compared against the current
+  // logo rather than kept as a boolean, so a new logo (after an upload or
+  // edit) is attempted even if an earlier one 404'd.
+  const [failedLogo, setFailedLogo] = useState(null);
+  if (failedLogo && failedLogo !== image) setFailedLogo(null);
+  const showBanner = Boolean(image) && failedLogo !== image;
 
   async function handleDelete(event) {
     event.preventDefault();
@@ -46,11 +53,12 @@ function TeamCard({ team }) {
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-card border border-line bg-surface shadow-card transition-[box-shadow,border-color] duration-200 hover:border-brand-200 hover:shadow-raised focus-within:border-brand-300">
-      {image && (
+      {showBanner && (
         <div className="relative h-32 w-full overflow-hidden bg-surface-muted">
           <img
             src={image}
             alt=""
+            onError={() => setFailedLogo(image)}
             className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
           />
           <div
