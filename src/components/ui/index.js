@@ -14,6 +14,7 @@ export {
   SearchInput,
 } from "./Field";
 export { Modal } from "./Modal";
+export { Tabs, TabPanel } from "./Tabs";
 export { Avatar, TeamBadge } from "./Avatar";
 export {
   Spinner,

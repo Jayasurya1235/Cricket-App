@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { AlertCircle, BarChart3, CheckCircle2, Trash2 } from "lucide-react";
 import { usePlayer } from "../hooks/usePlayer";
 import { useLocations } from "../hooks/useLocations";
 import { useCountryCodes } from "../hooks/useCountryCodes";
@@ -157,6 +157,12 @@ function EditPlayerForm({ player, playerId }) {
         ]}
         title="Edit Athlete Profile"
         description="Update general profiles, physical specifications, contact details and team assignment."
+        actions={
+          <Button as={Link} to={`/players/${playerId}`} variant="secondary">
+            <BarChart3 className="size-4" aria-hidden="true" />
+            View analytics
+          </Button>
+        }
       />
 
       <Card className="p-6 md:p-8">

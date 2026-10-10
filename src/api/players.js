@@ -21,6 +21,22 @@ export const playersApi = {
     return res.data;
   },
 
+  // GET /players/{player_id}/performance
+  // Career batting/bowling/fielding totals across the completed matches this
+  // account owns. PlayerPerformanceResponse.
+  getPerformance: async (playerId) => {
+    const res = await apiClient.get(`/players/${playerId}/performance`);
+    return res.data;
+  },
+
+  // GET /players/{player_id}/profile
+  // Player details, career totals and per-competition (level) splits.
+  // PlayerProfileResponse.
+  getProfile: async (playerId) => {
+    const res = await apiClient.get(`/players/${playerId}/profile`);
+    return res.data;
+  },
+
   // POST /players
   create: async (data) => {
     const res = await apiClient.post("/players", data);

@@ -31,6 +31,8 @@ import EditPlayerPage from "./pages/EditPlayerPage";
 import MatchesPage from "./pages/MatchesPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import MatchSummaryPage from "./pages/MatchSummaryPage";
+import PlayerDetailPage from "./pages/PlayerDetailPage";
+import TeamAnalyticsPage from "./pages/TeamAnalyticsPage";
 import AddMatchPage from "./pages/AddMatchPage";
 import ScoringPage from "./pages/ScoringPage";
 import LoginPage from "./pages/LoginPage";
@@ -325,6 +327,10 @@ function App() {
                     element={guard(<AddTeamPage />)}
                   />
                   <Route
+                    path="/teams/:teamId/analytics"
+                    element={guard(<TeamAnalyticsPage />)}
+                  />
+                  <Route
                     path="/teams/:teamId"
                     element={guard(<TeamDetailPage />)}
                   />
@@ -332,6 +338,10 @@ function App() {
                   <Route
                     path="/players/:playerId/edit"
                     element={guard(<EditPlayerPage />)}
+                  />
+                  <Route
+                    path="/players/:playerId"
+                    element={guard(<PlayerDetailPage />)}
                   />
                   <Route path="/matches/new" element={guard(<AddMatchPage />)} />
                   <Route

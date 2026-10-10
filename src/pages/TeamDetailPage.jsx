@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
+  BarChart3,
   Camera,
   CheckCircle2,
   Loader2,
@@ -339,6 +340,14 @@ function TeamDetailPage() {
         description={team.homeground || "Club profile and squad management"}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              as={Link}
+              to={`/teams/${team.id}/analytics`}
+              variant="secondary"
+            >
+              <BarChart3 className="size-4" aria-hidden="true" />
+              Analytics
+            </Button>
             <Button as={Link} to={`/teams/${team.id}/edit`} variant="secondary">
               Edit team
             </Button>

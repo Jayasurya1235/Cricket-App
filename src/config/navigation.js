@@ -50,10 +50,13 @@ export function resolvePageMeta(pathname) {
 
   const teamNew = /^\/teams\/new$/.test(pathname);
   const teamEdit = /^\/teams\/(\d+)\/edit$/.exec(pathname);
+  const teamAnalytics = /^\/teams\/(\d+)\/analytics$/.exec(pathname);
   const teamDetail = /^\/teams\/(\d+)$/.exec(pathname);
   const playerNew = /^\/players\/new$/.exec(pathname);
   const playerEdit = /^\/players\/(\d+)\/edit$/.exec(pathname);
+  const playerDetail = /^\/players\/(\d+)$/.exec(pathname);
   const matchScore = /^\/matches\/(\d+)\/score$/.exec(pathname);
+  const matchSummary = /^\/matches\/(\d+)\/summary$/.exec(pathname);
   const matchDetail = /^\/matches\/(\d+)$/.exec(pathname);
   const matchNew = /^\/matches\/new$/.test(pathname);
 
@@ -62,6 +65,12 @@ export function resolvePageMeta(pathname) {
       title: "Live Scoring",
       description: "Record deliveries ball by ball.",
       wide: true,
+    };
+  }
+  if (matchSummary) {
+    return {
+      title: "Match Summary",
+      description: "Result, milestones and per-team breakdown.",
     };
   }
   if (matchNew) {
@@ -79,6 +88,12 @@ export function resolvePageMeta(pathname) {
   if (teamNew) {
     return { title: "Register Team", description: "Create a new team." };
   }
+  if (teamAnalytics) {
+    return {
+      title: "Team Analytics",
+      description: "Record, form and head-to-head breakdown.",
+    };
+  }
   if (teamDetail) {
     return { title: "Team", description: "Squad, roles and fixtures." };
   }
@@ -87,6 +102,12 @@ export function resolvePageMeta(pathname) {
   }
   if (playerNew) {
     return { title: "Register Player", description: "Add a player to the registry." };
+  }
+  if (playerDetail) {
+    return {
+      title: "Player Analytics",
+      description: "Profile, career and performance breakdown.",
+    };
   }
   if (pathname.startsWith("/teams")) {
     return {

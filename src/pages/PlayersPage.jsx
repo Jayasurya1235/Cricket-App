@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   Award,
+  BarChart3,
   CheckCircle2,
   Pencil,
   Plus,
@@ -88,6 +89,14 @@ function PlayerCard({ player }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => navigate(`/players/${player.id}`)}
+            aria-label={`View ${name || "player"} analytics`}
+            className="flex size-9 items-center justify-center rounded-lg text-ink-subtle transition hover:bg-surface-muted hover:text-ink"
+          >
+            <BarChart3 className="size-4" aria-hidden="true" />
+          </button>
           <button
             type="button"
             onClick={() => navigate(`/players/${player.id}/edit`)}

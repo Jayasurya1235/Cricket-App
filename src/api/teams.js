@@ -13,6 +13,28 @@ export const teamsApi = {
     return res.data;
   },
 
+  // GET /teams/{team_id}/analytics?recent=
+  // Record across completed matches this account owns. TeamAnalyticsResponse.
+  getAnalytics: async (teamId, recent) => {
+    const res = await apiClient.get(`/teams/${teamId}/analytics`, {
+      params: recent ? { recent } : undefined,
+    });
+    return res.data;
+  },
+
+  // GET /teams/{team_id}/head-to-head/{opponent_id}?recent=&top=
+  // Two teams' completed-meeting record. HeadToHeadAnalyticsResponse.
+  getHeadToHead: async (teamId, opponentId, { recent, top } = {}) => {
+    const params = {};
+    if (recent) params.recent = recent;
+    if (top) params.top = top;
+    const res = await apiClient.get(
+      `/teams/${teamId}/head-to-head/${opponentId}`,
+      { params: Object.keys(params).length ? params : undefined },
+    );
+    return res.data;
+  },
+
   // POST /teams
   create: async (data) => {
     const res = await apiClient.post("/teams", data);
