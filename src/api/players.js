@@ -37,6 +37,16 @@ export const playersApi = {
     return res.data;
   },
 
+  // GET /players/{player_id}/career-stats
+  // Deeper career breakdown than /profile: the overall CareerStatsBlock plus
+  // splits by season, competition (level), tournament and team, and a
+  // recent_form list of per-match batting/bowling/fielding lines
+  // (PlayerCareerStatsResponse).
+  getCareerStats: async (playerId) => {
+    const res = await apiClient.get(`/players/${playerId}/career-stats`);
+    return res.data;
+  },
+
   // POST /players
   create: async (data) => {
     const res = await apiClient.post("/players", data);

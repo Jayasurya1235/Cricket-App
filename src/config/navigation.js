@@ -1,7 +1,9 @@
 import {
+  BarChart3,
   Calendar,
   LayoutDashboard,
   PlusCircle,
+  Trophy,
   UserPlus,
   Users,
   UserCheck,
@@ -12,12 +14,15 @@ export const NAV_ITEMS = [
   { to: "/teams", label: "Teams", icon: Users },
   { to: "/players", label: "Players", icon: UserCheck },
   { to: "/matches", label: "Matches", icon: Calendar },
+  { to: "/tournaments", label: "Tournaments", icon: Trophy },
+  { to: "/leaderboards", label: "Leaderboards", icon: BarChart3 },
 ];
 
 export const QUICK_ACTIONS = [
   { to: "/teams/new", label: "Add Team", icon: PlusCircle },
   { to: "/players/new", label: "Register Player", icon: UserPlus },
   { to: "/matches/new", label: "Schedule Match", icon: Calendar },
+  { to: "/tournaments/new", label: "Create Tournament", icon: Trophy },
 ];
 
 const AUTH_ROUTES = ["/login", "/register"];
@@ -57,9 +62,28 @@ export function resolvePageMeta(pathname) {
   const playerDetail = /^\/players\/(\d+)$/.exec(pathname);
   const matchScore = /^\/matches\/(\d+)\/score$/.exec(pathname);
   const matchSummary = /^\/matches\/(\d+)\/summary$/.exec(pathname);
+  const matchEdit = /^\/matches\/(\d+)\/edit$/.exec(pathname);
   const matchDetail = /^\/matches\/(\d+)$/.exec(pathname);
   const matchNew = /^\/matches\/new$/.test(pathname);
+  const tournamentNew = /^\/tournaments\/new$/.test(pathname);
+  const tournamentEdit = /^\/tournaments\/(\d+)\/edit$/.exec(pathname);
+  const tournamentDetail = /^\/tournaments\/(\d+)$/.exec(pathname);
 
+  if (tournamentEdit) {
+    return { title: "Edit Tournament", description: "Update tournament details." };
+  }
+  if (tournamentNew) {
+    return {
+      title: "Create Tournament",
+      description: "Set up format, points and schedule.",
+    };
+  }
+  if (tournamentDetail) {
+    return {
+      title: "Tournament",
+      description: "Teams, points table, fixtures and leaderboards.",
+    };
+  }
   if (matchScore) {
     return {
       title: "Live Scoring",
@@ -78,6 +102,9 @@ export function resolvePageMeta(pathname) {
       title: "Schedule Match",
       description: "Set up teams, venue, toss and officials.",
     };
+  }
+  if (matchEdit) {
+    return { title: "Edit Match", description: "Update fixture setup and overs." };
   }
   if (matchDetail) {
     return { title: "Match Details", description: "Fixture, toss and result." };
@@ -125,6 +152,18 @@ export function resolvePageMeta(pathname) {
     return {
       title: "Matches",
       description: "Scheduled, live and completed fixtures.",
+    };
+  }
+  if (pathname.startsWith("/tournaments")) {
+    return {
+      title: "Tournaments",
+      description: "Leagues, knockouts and their standings.",
+    };
+  }
+  if (pathname.startsWith("/leaderboards")) {
+    return {
+      title: "Leaderboards",
+      description: "Top batting, bowling and fielding performers.",
     };
   }
 

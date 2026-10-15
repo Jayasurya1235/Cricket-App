@@ -5,7 +5,9 @@ import {
   BarChart3,
   CalendarDays,
   ClipboardList,
+  Handshake,
   LayoutDashboard,
+  LineChart as LineChartIcon,
   MapPin,
   ScrollText,
   ShieldCheck,
@@ -42,6 +44,8 @@ import StatisticsPanel from "../components/match/StatisticsPanel";
 import PlayersPanel from "../components/match/PlayersPanel";
 import TeamAnalyticsPanel from "../components/match/TeamAnalyticsPanel";
 import HeadToHeadPanel from "../components/match/HeadToHeadPanel";
+import ChartsPanel from "../components/match/ChartsPanel";
+import PartnershipsPanel from "../components/match/PartnershipsPanel";
 
 function formatRuns(runs, wickets) {
   if (wickets == null) return String(runs ?? 0);
@@ -772,6 +776,10 @@ export default function MatchSummaryPage() {
     tabs.push({ id: "statistics", label: "Statistics", icon: BarChart3 });
   }
   if (hasScorecard) {
+    tabs.push({ id: "charts", label: "Charts", icon: LineChartIcon });
+    tabs.push({ id: "partnerships", label: "Partnerships", icon: Handshake });
+  }
+  if (hasScorecard) {
     tabs.push({ id: "players", label: "Players", icon: Users });
   }
   if (summaryTeams.length >= 2) {
@@ -1025,6 +1033,22 @@ export default function MatchSummaryPage() {
             teams={summaryTeams}
             inningsModels={inningsModels}
             summary={summary}
+          />
+        </TabPanel>
+
+        <TabPanel id="charts" activeId={safeActiveTab}>
+          <ChartsPanel
+            matchId={match.id}
+            teams={summaryTeams}
+            inningsModels={inningsModels}
+          />
+        </TabPanel>
+
+        <TabPanel id="partnerships" activeId={safeActiveTab}>
+          <PartnershipsPanel
+            matchId={match.id}
+            teams={summaryTeams}
+            inningsModels={inningsModels}
           />
         </TabPanel>
 

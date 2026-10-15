@@ -7,10 +7,15 @@ import { apiClient } from "./client";
 //   PUT    /v1/matches/{match_id}     -> MatchResponse       (MatchCreate body)
 //   PATCH  /v1/matches/{match_id}     -> MatchResponse       (MatchUpdate body)
 //   DELETE /v1/matches/{match_id}     -> 204
+//   GET    /v1/matches/{match_id}/partnerships?innings_number
+//                                     -> PartnershipAnalysisResponse
 //
 // MatchCreate required: match_date, match_time, venue, match_type,
 //   team_a_id, team_b_id, toss_winner_id, toss_decision.
 // Optional (nullable): result, referee_1_name, referee_2_name, match_referee_name.
+// Optional overs config: total_overs (int|null; format default: T20=20, ODI=50,
+//   Test=unlimited), super_over_enabled (bool=false), super_over_repeat
+//   (bool=true), player_of_match_id (int|null).
 
 export const matchesApi = {
   // GET /matches?skip=&limit=
@@ -49,6 +54,24 @@ export const matchesApi = {
   getAnalytics: async (id) => {
     try {
       const res = await apiClient.get(`/matches/${id}/analytics`);
+      return res.data;
+    } catch (err) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
+  },
+
+  // GET /matches/{match_id}/partnerships?innings_number=
+  // Innings-by-innings batting partnership analysis (PartnershipAnalysisResponse):
+  // innings[].partnerships[] with the two batsmen, runs/balls, run rate, the
+  // wicket it was for and whether it was unbroken. Returns null when the match
+  // has no recorded deliveries yet (404).
+  getPartnerships: async (id, inningsNumber) => {
+    try {
+      const res = await apiClient.get(`/matches/${id}/partnerships`, {
+        params:
+          inningsNumber != null ? { innings_number: inningsNumber } : undefined,
+      });
       return res.data;
     } catch (err) {
       if (err?.response?.status === 404) return null;

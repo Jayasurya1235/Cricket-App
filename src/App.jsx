@@ -35,6 +35,10 @@ import PlayerDetailPage from "./pages/PlayerDetailPage";
 import TeamAnalyticsPage from "./pages/TeamAnalyticsPage";
 import AddMatchPage from "./pages/AddMatchPage";
 import ScoringPage from "./pages/ScoringPage";
+import TournamentsPage from "./pages/TournamentsPage";
+import TournamentDetailPage from "./pages/TournamentDetailPage";
+import AddTournamentPage from "./pages/AddTournamentPage";
+import LeaderboardsPage from "./pages/LeaderboardsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
@@ -345,6 +349,10 @@ function App() {
                   />
                   <Route path="/matches/new" element={guard(<AddMatchPage />)} />
                   <Route
+                    path="/matches/:matchId/edit"
+                    element={guard(<AddMatchPage />)}
+                  />
+                  <Route
                     path="/matches/:matchId"
                     element={guard(<MatchDetailPage />)}
                   />
@@ -355,6 +363,26 @@ function App() {
                   <Route
                     path="/matches/:matchId/score"
                     element={guard(<ScoringPage />)}
+                  />
+                  <Route
+                    path="/tournaments"
+                    element={guard(<TournamentsPage />)}
+                  />
+                  <Route
+                    path="/tournaments/new"
+                    element={guard(<AddTournamentPage />)}
+                  />
+                  <Route
+                    path="/tournaments/:tournamentId/edit"
+                    element={guard(<AddTournamentPage />)}
+                  />
+                  <Route
+                    path="/tournaments/:tournamentId"
+                    element={guard(<TournamentDetailPage />)}
+                  />
+                  <Route
+                    path="/leaderboards"
+                    element={guard(<LeaderboardsPage />)}
                   />
                   <Route
                     path="*"

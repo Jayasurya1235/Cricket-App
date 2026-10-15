@@ -1,20 +1,29 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AlertCircle, CalendarPlus, ShieldAlert } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  AlertCircle,
+  CalendarPlus,
+  CheckCircle2,
+  ShieldAlert,
+} from "lucide-react";
 import { useTeams } from "../hooks/useTeams";
+import { useMatch } from "../hooks/useMatch";
 import { useCreateMatch } from "../hooks/useCreateMatch";
-import { emptyMatchForm } from "../api/matchSchema";
+import { useUpdateMatch } from "../hooks/useUpdateMatch";
+import { emptyMatchForm, matchToForm } from "../api/matchSchema";
 import { extractErrorMessage } from "../api/client";
 import {
   Button,
   Card,
   EmptyState,
+  ErrorState,
   Field,
   Input,
   LoadingState,
   PageHeader,
   SectionHeading,
   Select,
+  Switch,
 } from "../components/ui";
 
 const MATCH_TYPES = [
@@ -28,12 +37,15 @@ const TOSS_DECISIONS = [
   { value: "bowl", label: "bowl" },
 ];
 
-function AddMatchPage() {
+function MatchForm({ match, isEdit, matchId }) {
   const navigate = useNavigate();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const createMatch = useCreateMatch();
+  const updateMatch = useUpdateMatch();
 
-  const [form, setForm] = useState(emptyMatchForm);
+  const [form, setForm] = useState(() =>
+    isEdit ? matchToForm(match) : emptyMatchForm,
+  );
   const [formError, setFormError] = useState("");
 
   const teamA = teams?.find((t) => t.id === Number(form.team_a_id));
@@ -74,6 +86,8 @@ function AddMatchPage() {
       return;
     }
 
+    const overs = String(form.total_overs).trim();
+
     try {
       const payload = {
         match_type: form.match_type,
@@ -88,9 +102,17 @@ function AddMatchPage() {
         referee_1_name: form.referee_1_name || null,
         referee_2_name: form.referee_2_name || null,
         match_referee_name: form.match_referee_name || null,
+        total_overs: overs === "" ? null : Number(overs),
+        super_over_enabled: Boolean(form.super_over_enabled),
+        super_over_repeat: Boolean(form.super_over_repeat),
       };
-      const newMatch = await createMatch.mutateAsync(payload);
-      navigate(`/matches/${newMatch.id}`);
+      if (isEdit) {
+        await updateMatch.mutateAsync({ id: matchId, data: payload });
+        navigate(`/matches/${matchId}`);
+      } else {
+        const newMatch = await createMatch.mutateAsync(payload);
+        navigate(`/matches/${newMatch.id}`);
+      }
     } catch (err) {
       setFormError(extractErrorMessage(err));
     }
@@ -116,11 +138,17 @@ function AddMatchPage() {
     );
   }
 
+  const isPending = createMatch.isPending || updateMatch.isPending;
+
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        breadcrumbs={[{ label: "Matches", to: "/matches" }, { label: "New" }]}
-        title="Schedule New Match"
+        breadcrumbs={[
+          { label: "Matches", to: "/matches" },
+          ...(isEdit ? [{ label: `Match #${matchId}`, to: `/matches/${matchId}` }] : []),
+          { label: isEdit ? "Edit" : "New" },
+        ]}
+        title={isEdit ? "Edit Match" : "Schedule New Match"}
         description="Configure venues, competing teams, toss outcome and match officials."
       />
 
@@ -252,6 +280,47 @@ function AddMatchPage() {
             </div>
           </div>
 
+          {/* Overs configuration */}
+          <div className="rounded-card border border-line bg-surface-sunken p-4">
+            <SectionHeading
+              title="Overs & Super Over"
+              description="Leave overs blank to use the format default (T20=20, ODI=50)."
+            />
+            <Field
+              label="Overs per innings"
+              hint="Blank = format default. Test matches are unlimited."
+            >
+              <Input
+                name="total_overs"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="200"
+                placeholder="e.g. 20"
+                value={form.total_overs}
+                onChange={(event) =>
+                  handleChange("total_overs", event.target.value)
+                }
+              />
+            </Field>
+            <div className="mt-4 space-y-4">
+              <Switch
+                label="Allow super over on a tie"
+                description="When the scores are level, play a deciding super over."
+                checked={form.super_over_enabled}
+                onChange={(value) => handleChange("super_over_enabled", value)}
+              />
+              {form.super_over_enabled && (
+                <Switch
+                  label="Repeat super overs until there's a winner"
+                  description="Keep playing super overs while the scores stay level."
+                  checked={form.super_over_repeat}
+                  onChange={(value) => handleChange("super_over_repeat", value)}
+                />
+              )}
+            </div>
+          </div>
+
           {/* Match officials */}
           <div className="rounded-card border border-line bg-surface-sunken p-4">
             <SectionHeading title="Match Officials" />
@@ -320,19 +389,66 @@ function AddMatchPage() {
           )}
 
           <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <Button as={Link} to="/matches" variant="ghost">
-              Back to Matches
+            <Button
+              as={Link}
+              to={isEdit ? `/matches/${matchId}` : "/matches"}
+              variant="ghost"
+            >
+              {isEdit ? "Cancel" : "Back to Matches"}
             </Button>
-            <Button type="submit" loading={createMatch.isPending}>
-              <CalendarPlus className="size-4" aria-hidden="true" />
-              {createMatch.isPending
-                ? "Creating match fixture…"
-                : "Schedule Match"}
+            <Button type="submit" loading={isPending}>
+              {isEdit ? (
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+              ) : (
+                <CalendarPlus className="size-4" aria-hidden="true" />
+              )}
+              {isEdit
+                ? isPending
+                  ? "Saving changes…"
+                  : "Save changes"
+                : isPending
+                  ? "Creating match fixture…"
+                  : "Schedule Match"}
             </Button>
           </div>
         </form>
       </Card>
     </div>
+  );
+}
+
+function AddMatchPage() {
+  const { matchId } = useParams();
+  const isEdit = Boolean(matchId);
+  const {
+    data: match,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useMatch(matchId);
+
+  if (isEdit && isLoading) {
+    return <LoadingState label="Loading match…" />;
+  }
+
+  if (isEdit && isError) {
+    return (
+      <ErrorState
+        title="Couldn't load match"
+        message={extractErrorMessage(error)}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  return (
+    <MatchForm
+      key={isEdit ? match?.id : "new"}
+      match={match}
+      isEdit={isEdit}
+      matchId={matchId}
+    />
   );
 }
 

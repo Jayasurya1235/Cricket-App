@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  Activity,
   ArrowLeft,
   BarChart3,
   History,
@@ -13,6 +14,7 @@ import { useTeam } from "../hooks/useTeam";
 import { useTeams } from "../hooks/useTeams";
 import { useTeamAnalytics } from "../hooks/useTeamAnalytics";
 import { useHeadToHead } from "../hooks/useHeadToHead";
+import { useWinLossTrend } from "../hooks/useTeamVisualizations";
 import { extractErrorMessage } from "../api/client";
 import { formatOvers, formatStat, fullName } from "../utils/analytics";
 import { teamLogo } from "../utils/teams";
@@ -26,6 +28,7 @@ import {
   StatGrid,
   StatTile,
 } from "../components/analytics";
+import { LineChart } from "../components/charts";
 import {
   Button,
   Card,
@@ -134,6 +137,9 @@ export default function TeamAnalyticsPage() {
 
   const h2hQuery = useHeadToHead(teamId, selectedOpponentId);
   const h2h = h2hQuery.data;
+
+  const trendQuery = useWinLossTrend(teamId);
+  const trend = trendQuery.data;
 
   if (teamQuery.isLoading || analyticsQuery.isLoading) {
     return <LoadingState label="Loading team analytics…" />;
@@ -532,6 +538,40 @@ export default function TeamAnalyticsPage() {
               value={formatStat(analytics.average_run_rate, 2)}
             />
           </StatGrid>
+        </AnalyticsSection>
+
+        <AnalyticsSection
+          icon={Activity}
+          title="Win–loss trend"
+          description="Cumulative results across the team's completed matches."
+        >
+          {trendQuery.isLoading ? (
+            <LoadingState compact label="Loading win–loss trend…" />
+          ) : !trend || (trend.trend?.length ?? 0) === 0 ? (
+            <p className="rounded-card border border-dashed border-line-strong bg-surface-muted/40 px-4 py-6 text-center text-[13px] text-ink-subtle">
+              No completed matches to chart yet.
+            </p>
+          ) : (
+            <LineChart
+              labels={trend.trend.map((_, index) => `#${index + 1}`)}
+              height={220}
+              series={[
+                {
+                  key: "wins",
+                  label: "Cumulative wins",
+                  color: "var(--color-success)",
+                  values: trend.trend.map((point) => point.cumulative_wins),
+                },
+                {
+                  key: "losses",
+                  label: "Cumulative losses",
+                  color: "var(--color-danger)",
+                  values: trend.trend.map((point) => point.cumulative_losses),
+                },
+              ]}
+              ariaLabel={`${teamName} cumulative wins and losses`}
+            />
+          )}
         </AnalyticsSection>
 
         {(analytics.recent_form?.length > 0 ||

@@ -10,6 +10,11 @@
 // MatchResponse additionally returns: id, status, current_innings_number,
 // team_a, team_b, toss_winner
 //   (each is a { id, name, short_name } MatchTeamInfo object).
+//
+// Overs configuration (MatchCreate / MatchResponse; nullable on MatchUpdate):
+//   total_overs (int|null; when omitted the format default applies — T20=20,
+//     ODI=50, Test=unlimited), super_over_enabled (bool, default false),
+//   super_over_repeat (bool, default true), player_of_match_id (int|null).
 
 export const emptyMatchForm = {
   match_type: '',       // "Test" | "ODI" | "T20"
@@ -24,6 +29,34 @@ export const emptyMatchForm = {
   referee_1_name: '',    // umpire 1
   referee_2_name: '',    // umpire 2
   match_referee_name: '', // match referee
+  total_overs: '',       // int|null — blank means the format default
+  super_over_enabled: false,
+  super_over_repeat: true,
+}
+
+// Maps a MatchResponse onto the form shape so the same form drives create and
+// edit. `total_overs` is coalesced to "" (blank = format default) rather than
+// the string "null" from an absent field.
+export function matchToForm(match) {
+  if (!match) return emptyMatchForm;
+  return {
+    ...emptyMatchForm,
+    match_type: match.match_type ?? '',
+    venue: match.venue ?? '',
+    match_date: match.match_date ?? '',
+    match_time: match.match_time ?? '',
+    team_a_id: match.team_a_id != null ? String(match.team_a_id) : '',
+    team_b_id: match.team_b_id != null ? String(match.team_b_id) : '',
+    toss_winner_id: match.toss_winner_id != null ? String(match.toss_winner_id) : '',
+    toss_decision: match.toss_decision ?? '',
+    result: match.result ?? '',
+    referee_1_name: match.referee_1_name ?? '',
+    referee_2_name: match.referee_2_name ?? '',
+    match_referee_name: match.match_referee_name ?? '',
+    total_overs: match.total_overs != null ? String(match.total_overs) : '',
+    super_over_enabled: Boolean(match.super_over_enabled),
+    super_over_repeat: match.super_over_repeat ?? true,
+  };
 }
 
 // Derives a displayable status from the backend response.

@@ -34,6 +34,7 @@ import {
   LoadingState,
   PageHeader,
 } from "../components/ui";
+import PlayerCareerBreakdown from "../components/player/PlayerCareerBreakdown";
 
 function ProfileRow({ icon: Icon, label, value }) {
   if (!value) return null;
@@ -335,6 +336,8 @@ export default function PlayerDetailPage() {
         >
           <FieldingStatsBlock stats={fielding} />
         </AnalyticsSection>
+
+        <PlayerCareerBreakdown playerId={playerId} />
 
         <AnalyticsSection
           icon={BarChart3}

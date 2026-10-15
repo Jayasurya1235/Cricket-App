@@ -2,8 +2,11 @@ import { Link, useParams } from "react-router-dom";
 import {
   CalendarDays,
   Coins,
+  Gauge,
   MapPin,
+  Pencil,
   Play,
+  Repeat,
   ScrollText,
   ShieldCheck,
   Trophy,
@@ -31,6 +34,21 @@ const STATUS_TONES = {
   Completed: "neutral",
   Abandoned: "danger",
 };
+
+// total_overs is null when the match follows its format default.
+function describeOvers(match) {
+  if (match.total_overs != null) return `${match.total_overs} overs`;
+  if (match.match_type === "T20") return "20 overs (format default)";
+  if (match.match_type === "ODI") return "50 overs (format default)";
+  return "Unlimited";
+}
+
+function describeSuperOver(match) {
+  if (!match.super_over_enabled) return "Not enabled";
+  return match.super_over_repeat
+    ? "Enabled · repeats until decided"
+    : "Enabled · single super over";
+}
 
 function MetaItem({ icon: Icon, label, value }) {
   return (
@@ -164,6 +182,14 @@ function MatchDetailPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              as={Link}
+              to={`/matches/${match.id}/edit`}
+              variant="secondary"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              Edit
+            </Button>
             {status === "Completed" && (
               <Button as={Link} to={`/matches/${match.id}/summary`} variant="secondary">
                 <Trophy className="size-4" aria-hidden="true" />
@@ -238,6 +264,21 @@ function MatchDetailPage() {
               icon={ShieldCheck}
               label="Match referee"
               value={match.match_referee_name}
+            />
+          </dl>
+        </Card>
+
+        <Card className="p-5">
+          <dl className="grid grid-cols-2 gap-5 lg:grid-cols-1">
+            <MetaItem
+              icon={Gauge}
+              label="Overs"
+              value={describeOvers(match)}
+            />
+            <MetaItem
+              icon={Repeat}
+              label="Super over"
+              value={describeSuperOver(match)}
             />
           </dl>
         </Card>
